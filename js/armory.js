@@ -36,11 +36,6 @@ const Armory = {
     return [weapon.base, weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean);
   },
 
-  // Synergy counts across every installed part.
-  synergy(weapon) {
-    return Synergy.tally(Armory.installed(weapon).map((p) => WEAPON_PARTS[p.partId]));
-  },
-
   canInstall(weapon, partId) {
     const part = WEAPON_PARTS[partId];
     return part ? part.canInstallOn(weapon) : { ok: false, reason: "Unknown part." };

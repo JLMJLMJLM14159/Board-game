@@ -1,6 +1,8 @@
 // =============================================================
 // synergy.js — the Thermal / Electrical / Biological circle.
-// Pure logic, no drawing.
+// Pure logic, no drawing. Nothing about synergy is stored or
+// pre-counted: effects work it out at the moment they trigger
+// or are asked for.
 // =============================================================
 
 const Synergy = {
@@ -37,18 +39,5 @@ const Synergy = {
   // PLACEHOLDER RULE: the gameplay effect of a relation. Fill in once decided.
   effectOf(relation) {
     return null;
-  },
-
-  // Counts each element across a list of things that have a `synergy` field,
-  // e.g. all parts on a weapon. Returns { thermal: 0, electrical: 2, ... }.
-  tally(items) {
-    const counts = {};
-    for (const id of Synergy.ids()) counts[id] = 0;
-    for (const item of items) {
-      if (item && item.synergy && counts[item.synergy] !== undefined) {
-        counts[item.synergy]++;
-      }
-    }
-    return counts;
   },
 };

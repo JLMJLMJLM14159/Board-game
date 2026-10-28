@@ -148,12 +148,6 @@ const UI = {
     ].join("");
   },
 
-  synergyPips(counts) {
-    return CONFIG.synergyElements
-      .map((e) => `<span class="pip" style="--c:${e.color}" title="${e.name}">${counts[e.id]}</span>`)
-      .join("");
-  },
-
   renderPlayerBoards(state, selection) {
     const root = document.getElementById("player-boards");
     root.innerHTML = state.players
@@ -166,7 +160,6 @@ const UI = {
               <div class="weapon ${isSelected ? "selected" : ""}" data-player="${p}" data-weapon="${w}">
                 <h4>${base ? `${base.name} <small>${base.weaponClass}</small>` : `Weapon ${w + 1}`}</h4>
                 <ul>${UI.slotRowsHtml(weapon)}</ul>
-                <div class="pips">${UI.synergyPips(Armory.synergy(weapon))}</div>
               </div>`;
           })
           .join("");

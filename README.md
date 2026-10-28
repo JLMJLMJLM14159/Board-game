@@ -62,6 +62,12 @@ Rarities, colours, multipliers and odds are in `CONFIG.rarities`.
 All randomness goes through `js/random.js`, which stores its position in the game state,
 so undoing and redoing a roll gives the same result.
 
+## Calculation rule
+
+Nothing derived is stored or kept up to date in advance (synergy, stat totals, bonuses...).
+Values are worked out at the moment an effect triggers or something asks for them,
+from the parts and pieces as they are right then.
+
 ## Layout rule
 
 The whole game must fit on one screen with no page scrolling, on laptops and tablets
