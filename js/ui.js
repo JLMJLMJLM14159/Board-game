@@ -25,7 +25,6 @@ const UI = {
     document.getElementById("next-phase").onclick = () => handlers.onAction({ type: "NEXT_PHASE" });
     document.getElementById("undo").onclick = handlers.onUndo;
     document.getElementById("restart").onclick = handlers.onRestart;
-    UI.renderSynergyCircle();
   },
 
   render(state, selection, canUndo) {
@@ -82,12 +81,32 @@ const UI = {
     svg.replaceChildren();
 
     const selectedSpace = selection && selection.kind === "space" ? state.spaces[selection.id] : null;
-    const neighborIds = selectedSpace ? Board.neighbors(state.spaces, selectedSpace) : [];
-    const actionSpaceIds = new Set(Rules.getLegalActions(state).map((a) => a.spaceId).filter(Boolean));
+    const selectedUnit = selectedSpace && selectedSpace.unit;
+    const legal = Rules.getLegalActions(state);
+    const actionSpaceIds = new Set(legal.flatMap((a) => [a.spaceId, a.from]).filter(Boolean));
 
-    // Octagons first, then squares on top so their edges stay crisp,
-    // then the selected space last so its outline isn't covered.
-    const layer = (s) => (selectedSpace && s.id === selectedSpace.id ? 2 : s.kind === "octagon" ? 0 : 1);
+    // Clicking a highlighted space does the selected unit's move or shot there.
+    const clickActions = {};
+    for (const a of legal) {
+      if (!selectedSpace || a.from !== selectedSpace.id) continue;
+      if (a.type === "MOVE_UNIT") clickActions[a.to] = a;
+      if (a.type === "SHOOT") clickActions[a.target] = a;
+    }
+
+    // A selected unit shows its range; anything else shows its neighbours.
+    let neighborIds = [];
+    let inRange = () => false;
+    if (selectedUnit) {
+      const range = Units.range(state, selectedUnit);
+      inRange = (s) => s.kind === "octagon" && s.id !== selectedSpace.id && Board.distance(selectedSpace, s) <= range;
+    } else if (selectedSpace) {
+      neighborIds = Board.neighbors(state.spaces, selectedSpace);
+    }
+
+    // Octagons first, then squares on top so their edges stay crisp, then
+    // click targets and the selected space last so their outlines aren't covered.
+    const layer = (s) =>
+      selectedSpace && s.id === selectedSpace.id ? 3 : clickActions[s.id] ? 2 : s.kind === "octagon" ? 0 : 1;
     const spaces = Object.values(state.spaces).sort((a, b) => layer(a) - layer(b));
 
     for (const space of spaces) {
@@ -96,6 +115,9 @@ const UI = {
       if (selectedSpace && space.id === selectedSpace.id) g.classList.add("selected");
       if (neighborIds.includes(space.id)) g.classList.add("neighbor");
       if (actionSpaceIds.has(space.id)) g.classList.add("actionable");
+      if (inRange(space)) g.classList.add("in-range");
+      const clickAction = clickActions[space.id];
+      if (clickAction) g.classList.add(clickAction.type === "SHOOT" ? "shoot-target" : "move-target");
       g.dataset.id = space.id;
 
       const shape = document.createElementNS(SVG_NS, "polygon");
@@ -115,7 +137,9 @@ const UI = {
         g.appendChild(label);
       }
 
-      g.addEventListener("click", () => UI.handlers.onSelect({ kind: "space", id: space.id }));
+      g.addEventListener("click", () =>
+        clickAction ? UI.handlers.onAction(clickAction) : UI.handlers.onSelect({ kind: "space", id: space.id })
+      );
       svg.appendChild(g);
     }
   },
@@ -195,6 +219,12 @@ const UI = {
       const holds = space.kind === "octagon" ? "Unit" : "Building";
       title.textContent = `${space.kind === "octagon" ? "Octagon" : "Square"} ${space.row + 1}-${space.col + 1}`;
       body.innerHTML = `<p><span class="muted">${holds}:</span> ${occupant ? UI.occupantText(state, space) : "none"}</p>`;
+      if (space.unit) {
+        const u = space.unit;
+        body.innerHTML += `
+          <p><span class="muted">Movement:</span> ${Units.movesLeft(state, u)} of ${Units.movement(state, u)} left
+             · <span class="muted">Range:</span> ${Units.range(state, u)}${u.hasShot ? " · <span class=\"muted\">has shot</span>" : ""}</p>`;
+      }
       actions = Rules.getActionsForSpace(state, space.id);
     } else {
       const owner = state.players[selection.player];
@@ -232,32 +262,5 @@ const UI = {
     const o = space.unit || space.building;
     const def = space.unit ? UNIT_TYPES[o.typeId] : BUILDING_TYPES[o.typeId];
     return `${def ? def.name : o.typeId} (${state.players[o.owner].name})`;
-  },
-
-  // ---------- Synergy circle (static diagram) ----------
-
-  renderSynergyCircle() {
-    const svg = document.getElementById("synergy");
-    const els = CONFIG.synergyElements;
-    const r = 34;
-    const pos = els.map((_, i) => {
-      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / els.length;
-      return { x: 80 + Math.cos(angle) * 48, y: 72 + Math.sin(angle) * 48 };
-    });
-    let html = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>`;
-    els.forEach((_, i) => {
-      const a = pos[i];
-      const b = pos[(i + 1) % els.length];
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const len = Math.hypot(dx, dy);
-      const trim = r * 0.62;
-      html += `<line class="synergy-link" x1="${a.x + (dx / len) * trim}" y1="${a.y + (dy / len) * trim}" x2="${b.x - (dx / len) * trim}" y2="${b.y - (dy / len) * trim}" marker-end="url(#arrow)"/>`;
-    });
-    els.forEach((e, i) => {
-      html += `<circle cx="${pos[i].x}" cy="${pos[i].y}" r="${r * 0.55}" fill="${e.color}"/>`;
-      html += `<text x="${pos[i].x}" y="${pos[i].y}" class="synergy-label">${e.name.slice(0, 4)}</text>`;
-    });
-    svg.innerHTML = html;
   },
 };

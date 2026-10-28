@@ -17,7 +17,8 @@ js/data/            the catalogues (currently empty, with templates)
 js/random.js        seeded randomness (undo-safe)
 js/rarity.js        part rarity rolls
 js/synergy.js       the Thermal -> Electrical -> Biological circle
-js/board.js         board shape: spaces and which ones touch
+js/board.js         board shape: spaces, which ones touch, distances
+js/units.js         unit movement, range and per-turn tracking
 js/parts.js         weapon part classes (see below)
 js/armory.js        working with a whole weapon
 js/rules.js         game state + every action the game allows
@@ -25,7 +26,7 @@ js/ui.js            draws everything and reports clicks
 js/main.js          connects rules and UI, plus undo history
 ```
 
-Rules files (`synergy.js`, `board.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
+Rules files (`synergy.js`, `board.js`, `units.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
 The UI files never change the game state directly. Every change goes through `Rules.applyAction`.
 
 ## Turn structure
@@ -37,6 +38,14 @@ and then skip straight on. A unit or building gets a trigger by adding
 
 During **Main** you spend money to recruit units, which are either `civilian` or `military`.
 Prices go in `CONFIG.unitCosts` in `js/config.js`. They're `null` (shown as "price TBD", and free) until decided.
+
+During **Unit control** each of your units can:
+- **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals);
+- **shoot** an enemy unit within its `range`, counted without diagonals (so a diagonal neighbour is 2 away).
+
+Both stats come from the unit type in `js/data/units.js`, plus or minus the `movement` / `range`
+stats of the parts on its weapons. Click a unit to see where it can go (green) and what it can hit (red),
+then click the space to do it.
 
 ## Weapon part classes
 

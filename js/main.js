@@ -23,6 +23,8 @@ UI.init({
       history.push(state);
       state = Rules.applyAction(state, action);
       if (state.currentPlayer !== previousPlayer) selection = null;
+      // Keep a moving unit selected so it can keep moving.
+      if (action.type === "MOVE_UNIT") selection = { kind: "space", id: action.to };
     } catch (err) {
       history.pop();
       alert(err.message);

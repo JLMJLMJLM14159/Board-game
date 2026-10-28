@@ -109,13 +109,6 @@ aside {
   gap: var(--gap);
 }
 
-.side-top {
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 120px;
-  gap: var(--gap);
-}
-
 .panel {
   min-height: 0;
   background: var(--surface);
@@ -137,7 +130,7 @@ aside {
     grid-template-rows: minmax(0, 1fr) auto;
   }
   aside { grid-template-rows: auto auto; }
-  .side-top { height: 150px; }
+  #panel { height: 150px; }
   #player-boards { grid-template-columns: 1fr 1fr; }
 }
 
@@ -149,6 +142,9 @@ aside {
 .space:hover polygon { fill: var(--surface-2); }
 .space.neighbor polygon { fill: #1d3440; }
 .space.actionable polygon { stroke: #3b6a7a; }
+.space.in-range polygon { fill: #2a2030; }
+.space.move-target polygon { fill: #1d4a3a; stroke: #4caf50; stroke-width: 2; }
+.space.shoot-target polygon { fill: #4a1d24; stroke: #ef5350; stroke-width: 2.5; }
 .space.selected polygon { stroke: var(--accent); stroke-width: 3; fill: #123040; }
 
 .occupant {
@@ -160,19 +156,6 @@ aside {
 }
 .occupant.octagon { font-size: 18px; }
 .occupant.square { font-size: 9px; }
-
-/* ---------- Synergy circle ---------- */
-.synergy-panel { display: flex; flex-direction: column; }
-#synergy { width: 100%; flex: 1; min-height: 0; display: block; }
-.synergy-link { stroke: var(--muted); stroke-width: 2; }
-.arrowhead { fill: var(--muted); }
-.synergy-label {
-  font-size: 10px;
-  font-weight: 700;
-  text-anchor: middle;
-  dominant-baseline: central;
-  fill: #111;
-}
 
 /* ---------- Player boards ---------- */
 #player-boards {

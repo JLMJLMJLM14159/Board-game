@@ -66,7 +66,83 @@ const ACTIONS = {
     },
     apply(state, a) {
       state.players[state.currentPlayer].money -= Rules.unitCost(a.unitTypeId) ?? 0;
-      state.spaces[a.spaceId].unit = { typeId: a.unitTypeId, owner: state.currentPlayer };
+      state.spaces[a.spaceId].unit = {
+        id: state.nextUnitId++,
+        typeId: a.unitTypeId,
+        owner: state.currentPlayer,
+        stepsTaken: 0,
+        hasShot: false,
+      };
+    },
+  },
+
+  // One step to an octagon sharing a side (no diagonals), up to the unit's movement.
+  MOVE_UNIT: {
+    label(a, state) {
+      const from = state.spaces[a.from];
+      const to = state.spaces[a.to];
+      const dir = to.row < from.row ? "up" : to.row > from.row ? "down" : to.col < from.col ? "left" : "right";
+      return `Move ${dir}`;
+    },
+    list(state) {
+      const out = [];
+      for (const space of Object.values(state.spaces)) {
+        if (!space.unit || space.unit.owner !== state.currentPlayer) continue;
+        for (const to of Board.octagonNeighbors(state.spaces, space)) out.push({ type: "MOVE_UNIT", from: space.id, to });
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "unitControl");
+      if (!phase.ok) return phase;
+      const from = state.spaces[a.from];
+      const to = state.spaces[a.to];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!to || !Board.octagonNeighbors(state.spaces, from).includes(to.id)) return no("Units move one side-sharing octagon at a time.");
+      // PLACEHOLDER RULE: units can't move onto or through other units.
+      if (to.unit) return no("That octagon is occupied.");
+      // PLACEHOLDER RULE: a unit can't move after it has shot.
+      if (from.unit.hasShot) return no("This unit has already shot.");
+      if (Units.movesLeft(state, from.unit) <= 0) return no("No movement left.");
+      return OK;
+    },
+    apply(state, a) {
+      const unit = state.spaces[a.from].unit;
+      unit.stepsTaken++;
+      state.spaces[a.to].unit = unit;
+      state.spaces[a.from].unit = null;
+    },
+  },
+
+  // Shoot at an enemy unit within range (counted without diagonals).
+  SHOOT: {
+    label: (a, state) => `Shoot ${Units.def(state.spaces[a.target].unit).name}`,
+    list(state) {
+      const spaces = Object.values(state.spaces);
+      const out = [];
+      for (const space of spaces) {
+        if (!space.unit || space.unit.owner !== state.currentPlayer) continue;
+        for (const target of spaces) {
+          if (target.unit && target.unit.owner !== state.currentPlayer) out.push({ type: "SHOOT", from: space.id, target: target.id });
+        }
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "unitControl");
+      if (!phase.ok) return phase;
+      const from = state.spaces[a.from];
+      const target = state.spaces[a.target];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!target || !target.unit || target.unit.owner === state.currentPlayer) return no("Choose an enemy unit.");
+      // PLACEHOLDER RULE: one shot per unit per turn.
+      if (from.unit.hasShot) return no("This unit has already shot.");
+      if (Board.distance(from, target) > Units.range(state, from.unit)) return no("Out of range.");
+      return OK;
+    },
+    // PLACEHOLDER RULE: what a hit does (damage, destroying the unit...) isn't decided yet.
+    apply(state, a) {
+      state.spaces[a.from].unit.hasShot = true;
     },
   },
 
@@ -137,6 +213,7 @@ const Rules = {
       phase: PHASES[0].id,
       winner: null,
       rngState: Random.newSeed(),
+      nextUnitId: 1,
     };
     Rules.enterPhase(state);
     return state;
@@ -170,6 +247,7 @@ const Rules = {
       state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
       if (state.currentPlayer === 0) state.round++;
       state.phase = PHASES[0].id;
+      Units.resetTurn(state, state.currentPlayer);
     } else {
       state.phase = PHASES[i + 1].id;
     }
@@ -210,9 +288,9 @@ const Rules = {
       .filter((action) => Rules.check(state, action).ok);
   },
 
-  // Legal actions that target a given board space.
+  // Legal actions that happen on a board space, or are done by the piece on it.
   getActionsForSpace(state, spaceId) {
-    return Rules.getLegalActions(state).filter((a) => a.spaceId === spaceId);
+    return Rules.getLegalActions(state).filter((a) => a.spaceId === spaceId || a.from === spaceId);
   },
 
   // Legal actions that target one of the current player's weapons.

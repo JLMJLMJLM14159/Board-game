@@ -57,7 +57,13 @@ const Board = {
     return candidates.filter((id) => spaces[id]);
   },
 
-  // Neighbouring octagons only (handy for unit movement later).
+  // Steps between two octagons moving only through shared sides
+  // (no diagonals), so a diagonal neighbour is 2 away.
+  distance(a, b) {
+    return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
+  },
+
+  // Neighbouring octagons only: the ones sharing a side, i.e. where units can step.
   octagonNeighbors(spaces, space) {
     return Board.neighbors(spaces, space).filter((id) => spaces[id].kind === "octagon");
   },
