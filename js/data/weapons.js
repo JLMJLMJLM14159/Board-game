@@ -14,7 +14,11 @@
 //   },
 const WEAPON_BASES = {};
 
-// Parts that go on a base. Every part has a `slot`:
+// Parts that go on a base. Don't give parts a rarity here: each copy gets
+// a random rarity (common -> legendary) when it appears in the game, which
+// multiplies its stats. See CONFIG.rarities.
+//
+// Every part has a `slot`:
 //   "barrel"      — one per weapon
 //   "mag"         — one per weapon
 //   "attachment"  — up to CONFIG.attachmentSlots per weapon, each a different attachmentType

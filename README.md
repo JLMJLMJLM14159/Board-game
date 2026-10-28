@@ -14,6 +14,8 @@ js/data/            the catalogues (currently empty, with templates)
   weapons.js          weapon bases + parts (barrels, mags, attachments)
   units.js            units that go on octagons
   buildings.js        buildings that go on squares
+js/random.js        seeded randomness (undo-safe)
+js/rarity.js        part rarity rolls
 js/synergy.js       the Thermal -> Electrical -> Biological circle
 js/board.js         board shape: spaces and which ones touch
 js/armory.js        weapon-building rules (slots, compatibility)
@@ -34,6 +36,15 @@ and then skip straight on. A unit or building gets a trigger by adding
 
 During **Main** you spend money to recruit units, which are either `civilian` or `military`.
 Prices go in `CONFIG.unitCosts` in `js/config.js`. They're `null` (shown as "price TBD", and free) until decided.
+
+## Part rarity
+
+Every weapon part except the base gets a random rarity when it appears in the game:
+Common ×1, Uncommon ×2, Rare ×3, Epic ×5, Legendary ×8. The multiplier scales the part's stats.
+Rarities, colours, multipliers and odds are in `CONFIG.rarities`.
+
+All randomness goes through `js/random.js`, which stores its position in the game state,
+so undoing and redoing a roll gives the same result.
 
 ## Layout rule
 

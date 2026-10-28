@@ -110,9 +110,12 @@ const ACTIONS = {
       const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
       return weapon ? Armory.canAddPart(weapon, a.partId) : no("No such weapon slot.");
     },
+    // PLACEHOLDER RULE: how parts "appear" (shop, draw, loot...) isn't decided,
+    // so for now the rarity is rolled at the moment the part is installed.
     apply(state, a) {
       const weapons = state.players[state.currentPlayer].weapons;
-      weapons[a.weaponIndex] = Armory.withPart(weapons[a.weaponIndex], a.partId);
+      const instance = Armory.createPartInstance(state, a.partId);
+      weapons[a.weaponIndex] = Armory.withPart(weapons[a.weaponIndex], instance);
     },
   },
 
@@ -157,6 +160,7 @@ const Rules = {
       round: 1,
       phase: PHASES[0].id,
       winner: null,
+      rngState: Random.newSeed(),
     };
     Rules.enterPhase(state);
     return state;

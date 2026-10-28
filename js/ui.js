@@ -122,14 +122,28 @@ const UI = {
 
   // ---------- Player weapon boards ----------
 
-  slotRows(weapon) {
-    const name = (id, catalogue) => (id ? catalogue[id].name : null);
+  // [slot label, part instance or null] for each part slot (not the base).
+  partSlots(weapon) {
     return [
-      ["Base", name(weapon.baseId, WEAPON_BASES)],
-      ["Barrel", name(weapon.barrel, WEAPON_PARTS)],
-      ["Mag", name(weapon.mag, WEAPON_PARTS)],
-      ...weapon.attachments.map((id, i) => [`Attach ${i + 1}`, name(id, WEAPON_PARTS)]),
+      ["Barrel", weapon.barrel],
+      ["Mag", weapon.mag],
+      ...weapon.attachments.map((instance, i) => [`Attach ${i + 1}`, instance]),
     ];
+  },
+
+  // A part's name, coloured by its rarity.
+  partHtml(instance) {
+    const rarity = Rarity.get(instance.rarity);
+    return `<b style="color:${rarity.color}" title="${rarity.name} ×${rarity.multiplier}">${WEAPON_PARTS[instance.partId].name}</b>`;
+  },
+
+  slotRowsHtml(weapon) {
+    const empty = `<b class="empty">empty</b>`;
+    const base = Armory.base(weapon);
+    return [
+      `<li><span>Base</span>${base ? `<b>${base.name}</b>` : empty}</li>`,
+      ...UI.partSlots(weapon).map(([slot, instance]) => `<li><span>${slot}</span>${instance ? UI.partHtml(instance) : empty}</li>`),
+    ].join("");
   },
 
   synergyPips(counts) {
@@ -146,13 +160,10 @@ const UI = {
           .map((weapon, w) => {
             const base = Armory.base(weapon);
             const isSelected = selection && selection.kind === "weapon" && selection.player === p && selection.weaponIndex === w;
-            const rows = UI.slotRows(weapon)
-              .map(([slot, value]) => `<li><span>${slot}</span><b class="${value ? "" : "empty"}">${value || "empty"}</b></li>`)
-              .join("");
             return `
               <div class="weapon ${isSelected ? "selected" : ""}" data-player="${p}" data-weapon="${w}">
                 <h4>${base ? `${base.name} <small>${base.weaponClass}</small>` : `Weapon ${w + 1}`}</h4>
-                <ul>${rows}</ul>
+                <ul>${UI.slotRowsHtml(weapon)}</ul>
                 <div class="pips">${UI.synergyPips(Armory.synergy(weapon))}</div>
               </div>`;
           })
@@ -196,7 +207,14 @@ const UI = {
       title.textContent = `${owner.name} · Weapon ${selection.weaponIndex + 1}`;
       body.innerHTML = Armory.isEmpty(weapon)
         ? "<p>Empty weapon slot. Choose a base to start building.</p>"
-        : `<p><span class="muted">Class:</span> ${Armory.base(weapon).weaponClass}</p>`;
+        : `<p><span class="muted">Class:</span> ${Armory.base(weapon).weaponClass}</p>` +
+          UI.partSlots(weapon)
+            .filter(([, instance]) => instance)
+            .map(([slot, instance]) => {
+              const rarity = Rarity.get(instance.rarity);
+              return `<p><span class="muted">${slot}:</span> ${UI.partHtml(instance)} <span style="color:${rarity.color}">${rarity.name} ×${rarity.multiplier}</span></p>`;
+            })
+            .join("");
       // You can only modify your own weapons on your own turn.
       if (selection.player === state.currentPlayer) actions = Rules.getActionsForWeapon(state, selection.weaponIndex);
       else body.innerHTML += `<p class="muted">Not your weapon, so you can only look.</p>`;

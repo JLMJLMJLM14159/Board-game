@@ -49,6 +49,20 @@ const CONFIG = {
   // Number of attachment slots on each weapon.
   attachmentSlots: 2,
 
+  // ---- Part rarity ----
+  // Every weapon part except the base gets a random rarity when it
+  // appears in the game. Rarity isn't printed on the part itself.
+  // `multiplier` scales the part's power (1, 2, 3, 5, 8: Fibonacci).
+  // `weight` is how likely each rarity is to be rolled, relative to the others.
+  // PLACEHOLDER: the weights (odds) aren't decided yet.
+  rarities: [
+    { id: "common",    name: "Common",    color: "#c4c9cf", multiplier: 1, weight: 50 },
+    { id: "uncommon",  name: "Uncommon",  color: "#4caf50", multiplier: 2, weight: 25 },
+    { id: "rare",      name: "Rare",      color: "#2f8cff", multiplier: 3, weight: 15 },
+    { id: "epic",      name: "Epic",      color: "#a64dff", multiplier: 5, weight: 7 },
+    { id: "legendary", name: "Legendary", color: "#ffc107", multiplier: 8, weight: 3 },
+  ],
+
   // ---- Synergy circle ----
   // The order matters: each element points to the next one around the
   // circle (thermal -> electrical -> biological -> thermal).
