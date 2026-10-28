@@ -10,32 +10,34 @@
   <header>
     <h1>Board Game Prototype</h1>
     <div id="turn"></div>
+    <ol id="phases" aria-label="Turn phases"></ol>
     <div class="controls">
       <button id="undo">Undo</button>
-      <button id="end-turn" class="primary">End turn</button>
+      <button id="next-phase" class="primary">Next</button>
       <button id="restart">Restart</button>
     </div>
   </header>
 
   <main>
     <div class="board-wrap">
-      <svg id="board" aria-label="Main board"></svg>
+      <svg id="board" aria-label="Main board" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
 
     <aside>
-      <section class="panel">
-        <h2 id="panel-title"></h2>
-        <div id="panel-body"></div>
-        <div id="panel-actions" class="actions"></div>
-      </section>
-      <section class="panel">
-        <h2>Synergy circle</h2>
-        <svg id="synergy" viewBox="0 0 160 140" aria-label="Synergy circle"></svg>
-      </section>
+      <div class="side-top">
+        <section class="panel" id="panel">
+          <h2 id="panel-title"></h2>
+          <div id="panel-body"></div>
+          <div id="panel-actions" class="actions"></div>
+        </section>
+        <section class="panel synergy-panel">
+          <h2>Synergy</h2>
+          <svg id="synergy" viewBox="14 2 132 118" aria-label="Synergy circle"></svg>
+        </section>
+      </div>
+      <div id="player-boards"></div>
     </aside>
   </main>
-
-  <div id="player-boards"></div>
 
   <!-- Order matters: config and data first, then logic, then UI, then main. -->
   <script src="js/config.js"></script>

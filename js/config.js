@@ -19,6 +19,21 @@ const CONFIG = {
     { name: "Player 2", color: "#ba68c8" },
   ],
 
+  // ---- Money ----
+  // PLACEHOLDER: starting money for each player.
+  startingMoney: 0,
+
+  // ---- Units ----
+  // Every unit in data/units.js belongs to one of these categories.
+  unitCategories: ["civilian", "military"],
+
+  // Recruit price for each category. A unit can override it with its own `cost`.
+  // null = not decided yet; recruiting is free until you set a number.
+  unitCosts: {
+    civilian: null,
+    military: null,
+  },
+
   // ---- Weapons ----
   // PLACEHOLDER: how many weapons fit on each player's board.
   weaponsPerPlayer: 3,

@@ -1,3 +1,10 @@
+/* =============================================================
+   Layout rule: the whole game fits in one screen with no page
+   scrolling (laptops and tablets, landscape or portrait).
+   The body is exactly one viewport tall and the board shrinks
+   to fit whatever space is left.
+   ============================================================= */
+
 /* ---------- Theme ---------- */
 :root {
   --bg: #0b0f14;
@@ -11,16 +18,26 @@
   --square: #222c38;
   --font: "Segoe UI", system-ui, sans-serif;
   --mono: "Consolas", "SFMono-Regular", monospace;
+  --gap: 10px;
 }
 
 * { box-sizing: border-box; }
 
+html, body { height: 100%; }
+
 body {
   margin: 0;
-  padding: 16px;
+  padding: var(--gap);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--gap);
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
+  font-size: 14px;
 }
 
 h1, h2, h3, h4 { margin: 0; font-weight: 600; }
@@ -31,7 +48,7 @@ button {
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
-  padding: 6px 12px;
+  padding: 5px 10px;
   font: inherit;
   cursor: pointer;
 }
@@ -44,42 +61,85 @@ header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 6px 14px;
 }
-header h1 { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); }
-#turn { font-weight: 600; flex: 1; }
-.controls { display: flex; gap: 8px; }
+header h1 { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); }
+#turn { font-weight: 600; }
+.controls { display: flex; gap: 6px; margin-left: auto; }
 
-/* ---------- Layout ---------- */
-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 16px;
-  align-items: start;
+#phases {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
 }
-@media (max-width: 800px) {
-  main { grid-template-columns: 1fr; }
+#phases li {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+}
+#phases li.auto { border-style: dashed; opacity: 0.55; }
+#phases li.current { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+/* ---------- Main layout: board | side column ---------- */
+main {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(330px, 42vw, 600px);
+  gap: var(--gap);
 }
 
 .board-wrap {
+  min-height: 0;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px;
+  padding: 6px;
 }
-#board { width: 100%; max-height: 80vh; display: block; }
+#board { width: 100%; height: 100%; display: block; }
 
-aside { display: flex; flex-direction: column; gap: 16px; }
+aside {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--gap);
+}
+
+.side-top {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: var(--gap);
+}
+
 .panel {
+  min-height: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px;
+  padding: 10px;
 }
-.panel h2 { font-size: 14px; margin-bottom: 8px; color: var(--accent); font-family: var(--mono); }
-.panel p { margin: 4px 0; font-size: 14px; }
-.actions { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+/* The info panel scrolls inside itself if a space ever has lots of actions,
+   so the page never has to. */
+#panel { overflow-y: auto; }
+.panel h2 { font-size: 13px; margin-bottom: 6px; color: var(--accent); font-family: var(--mono); }
+.panel p { margin: 3px 0; font-size: 13px; }
+.actions { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+
+/* Portrait screens (e.g. tablet held upright): board on top, everything else below. */
+@media (orientation: portrait) {
+  main {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  aside { grid-template-rows: auto auto; }
+  .side-top { height: 150px; }
+  #player-boards { grid-template-columns: 1fr 1fr; }
+}
 
 /* ---------- Board spaces ---------- */
 .space { cursor: pointer; }
@@ -102,7 +162,8 @@ aside { display: flex; flex-direction: column; gap: 16px; }
 .occupant.square { font-size: 9px; }
 
 /* ---------- Synergy circle ---------- */
-#synergy { width: 100%; max-width: 220px; display: block; margin: 0 auto; }
+.synergy-panel { display: flex; flex-direction: column; }
+#synergy { width: 100%; flex: 1; min-height: 0; display: block; }
 .synergy-link { stroke: var(--muted); stroke-width: 2; }
 .arrowhead { fill: var(--muted); }
 .synergy-label {
@@ -116,48 +177,54 @@ aside { display: flex; flex-direction: column; gap: 16px; }
 /* ---------- Player boards ---------- */
 #player-boards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  margin-top: 16px;
+  gap: var(--gap);
 }
 .player-board {
   background: var(--surface);
   border: 1px solid var(--line);
   border-top: 3px solid var(--player);
   border-radius: 10px;
-  padding: 12px;
+  padding: 8px;
   opacity: 0.75;
 }
 .player-board.active { opacity: 1; box-shadow: 0 0 0 1px var(--player); }
-.player-board h3 { color: var(--player); font-size: 15px; margin-bottom: 10px; }
+.player-board h3 {
+  display: flex;
+  justify-content: space-between;
+  color: var(--player);
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.money { font-family: var(--mono); color: #ffd54f; }
 
 .weapons {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 .weapon {
+  min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px;
+  padding: 6px;
   cursor: pointer;
 }
 .weapon:hover { border-color: var(--muted); }
 .weapon.selected { border-color: var(--accent); }
-.weapon h4 { font-size: 13px; margin-bottom: 6px; }
+.weapon h4 { font-size: 12px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .weapon h4 small { color: var(--muted); font-weight: 400; text-transform: uppercase; }
-.weapon ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
-.weapon li { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; border-bottom: 1px dashed var(--line); }
-.weapon li span { color: var(--muted); }
-.weapon li b { font-weight: 500; text-align: right; }
+.weapon ul { list-style: none; margin: 0; padding: 0; font-size: 11px; }
+.weapon li { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; border-bottom: 1px dashed var(--line); }
+.weapon li span { color: var(--muted); white-space: nowrap; }
+.weapon li b { font-weight: 500; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .weapon li b.empty { color: #4a5a6a; font-style: italic; font-weight: 400; }
 
-.pips { display: flex; gap: 4px; margin-top: 6px; }
+.pips { display: flex; gap: 3px; margin-top: 4px; }
 .pip {
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--mono);
-  min-width: 20px;
+  min-width: 18px;
   text-align: center;
   border-radius: 4px;
   border: 1px solid var(--c);

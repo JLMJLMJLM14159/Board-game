@@ -22,7 +22,7 @@ const UI = {
 
   init(handlers) {
     UI.handlers = handlers;
-    document.getElementById("end-turn").onclick = () => handlers.onAction({ type: "END_TURN" });
+    document.getElementById("next-phase").onclick = () => handlers.onAction({ type: "NEXT_PHASE" });
     document.getElementById("undo").onclick = handlers.onUndo;
     document.getElementById("restart").onclick = handlers.onRestart;
     UI.renderSynergyCircle();
@@ -43,8 +43,18 @@ const UI = {
         ? `${state.players[state.winner].name} wins!`
         : `Round ${state.round} · ${player.name}'s turn`;
     turn.style.color = player.color;
+
+    // Automatic phases (beginning, end) are shown but marked as skipped.
+    document.getElementById("phases").innerHTML = PHASES.map(
+      (p) => `<li class="${p.id === state.phase ? "current" : ""} ${p.auto ? "auto" : ""}"
+                 title="${p.auto ? "Automatic: only runs triggers" : ""}">${p.name}</li>`
+    ).join("");
+
+    const next = { type: "NEXT_PHASE" };
+    const nextBtn = document.getElementById("next-phase");
+    nextBtn.textContent = Rules.describe(next, state);
+    nextBtn.disabled = !Rules.check(state, next).ok;
     document.getElementById("undo").disabled = !canUndo;
-    document.getElementById("end-turn").disabled = !Rules.check(state, { type: "END_TURN" }).ok;
   },
 
   // ---------- Main board ----------
@@ -118,7 +128,7 @@ const UI = {
       ["Base", name(weapon.baseId, WEAPON_BASES)],
       ["Barrel", name(weapon.barrel, WEAPON_PARTS)],
       ["Mag", name(weapon.mag, WEAPON_PARTS)],
-      ...weapon.attachments.map((id, i) => [`Attachment ${i + 1}`, name(id, WEAPON_PARTS)]),
+      ...weapon.attachments.map((id, i) => [`Attach ${i + 1}`, name(id, WEAPON_PARTS)]),
     ];
   },
 
@@ -149,7 +159,7 @@ const UI = {
           .join("");
         return `
           <section class="player-board ${p === state.currentPlayer ? "active" : ""}" style="--player:${player.color}">
-            <h3>${player.name}</h3>
+            <h3>${player.name} <span class="money">$${player.money}</span></h3>
             <div class="weapons">${weapons}</div>
           </section>`;
       })
@@ -178,9 +188,7 @@ const UI = {
       const occupant = space.unit || space.building;
       const holds = space.kind === "octagon" ? "Unit" : "Building";
       title.textContent = `${space.kind === "octagon" ? "Octagon" : "Square"} ${space.row + 1}-${space.col + 1}`;
-      body.innerHTML = `
-        <p><span class="muted">${holds}:</span> ${occupant ? UI.occupantText(state, space) : "none"}</p>
-        <p class="muted">${Board.neighbors(state.spaces, space).length} neighbouring spaces highlighted.</p>`;
+      body.innerHTML = `<p><span class="muted">${holds}:</span> ${occupant ? UI.occupantText(state, space) : "none"}</p>`;
       actions = Rules.getActionsForSpace(state, space.id);
     } else {
       const owner = state.players[selection.player];
@@ -197,7 +205,7 @@ const UI = {
     list.replaceChildren(
       ...actions.map((action) => {
         const btn = document.createElement("button");
-        btn.textContent = Rules.describe(action);
+        btn.textContent = Rules.describe(action, state);
         btn.onclick = () => UI.handlers.onAction(action);
         return btn;
       })

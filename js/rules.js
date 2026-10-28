@@ -2,8 +2,9 @@
 // rules.js — the game itself. Pure logic, no drawing.
 //
 // Everything that can happen in the game is an ACTION: a plain
-// object like { type: "END_TURN" }. Each action type lives in
-// ACTIONS below and has three parts:
+// object like { type: "NEXT_PHASE" }. Each action type lives in
+// ACTIONS below and has these parts:
+//   label(action, state) -> button text
 //   list(state)          -> every candidate action of this type right now
 //   check(state, action) -> { ok: true } or { ok: false, reason }
 //   apply(state, action) -> changes `state` (which is already a copy)
@@ -12,17 +13,60 @@
 // will offer it automatically wherever it's legal.
 // =============================================================
 
+// The parts of a turn, in order. `auto` phases have no player decisions:
+// they run their triggers ("at the beginning of your turn...") and the
+// game moves straight on to the next phase.
+const PHASES = [
+  { id: "beginning",   name: "Beginning",    auto: true },
+  { id: "main",        name: "Main",         auto: false },
+  { id: "unitControl", name: "Unit control", auto: false },
+  { id: "end",         name: "End",          auto: true },
+];
+
 const OK = { ok: true };
 const no = (reason) => ({ ok: false, reason });
 
+// Most actions can only be taken in one phase.
+const inPhase = (state, phaseId) =>
+  state.phase === phaseId ? OK : no(`Only during the ${PHASES.find((p) => p.id === phaseId).name} phase.`);
+
 const ACTIONS = {
-  END_TURN: {
-    label: () => "End turn",
-    list: () => [{ type: "END_TURN" }],
+  NEXT_PHASE: {
+    label: (a, state) => (Rules.nextManualPhase(state) ? `Go to ${Rules.nextManualPhase(state).name}` : "End turn"),
+    list: () => [{ type: "NEXT_PHASE" }],
     check: (state) => (state.winner === null ? OK : no("The game is over.")),
-    apply(state) {
-      state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
-      if (state.currentPlayer === 0) state.round++;
+    apply: (state) => Rules.advancePhase(state),
+  },
+
+  // ---- Units ----
+
+  RECRUIT_UNIT: {
+    label(a) {
+      const cost = Rules.unitCost(a.unitTypeId);
+      return `Recruit ${UNIT_TYPES[a.unitTypeId].name} (${cost === null ? "price TBD" : `$${cost}`})`;
+    },
+    list(state) {
+      const out = [];
+      for (const spaceId in state.spaces) {
+        for (const unitTypeId in UNIT_TYPES) out.push({ type: "RECRUIT_UNIT", spaceId, unitTypeId });
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      const space = state.spaces[a.spaceId];
+      // PLACEHOLDER RULE: a recruited unit can go on any empty octagon.
+      if (!space || space.kind !== "octagon") return no("Units go on octagons.");
+      if (space.unit) return no("That octagon is occupied.");
+      if (!UNIT_TYPES[a.unitTypeId]) return no("Unknown unit.");
+      const cost = Rules.unitCost(a.unitTypeId) ?? 0;
+      if (state.players[state.currentPlayer].money < cost) return no("Not enough money.");
+      return OK;
+    },
+    apply(state, a) {
+      state.players[state.currentPlayer].money -= Rules.unitCost(a.unitTypeId) ?? 0;
+      state.spaces[a.spaceId].unit = { typeId: a.unitTypeId, owner: state.currentPlayer };
     },
   },
 
@@ -37,8 +81,10 @@ const ACTIONS = {
       });
       return out;
     },
-    // PLACEHOLDER RULE: no cost yet, any number per turn.
+    // PLACEHOLDER RULE: main phase only, no cost yet, any number per turn.
     check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
       const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
       return weapon ? Armory.canSetBase(weapon, a.baseId) : no("No such weapon slot.");
     },
@@ -57,8 +103,10 @@ const ACTIONS = {
       });
       return out;
     },
-    // PLACEHOLDER RULE: no cost yet, any number per turn.
+    // PLACEHOLDER RULE: main phase only, no cost yet, any number per turn.
     check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
       const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
       return weapon ? Armory.canAddPart(weapon, a.partId) : no("No such weapon slot.");
     },
@@ -68,29 +116,7 @@ const ACTIONS = {
     },
   },
 
-  // ---- Main board ----
-
-  PLACE_UNIT: {
-    label: (a) => `Deploy ${UNIT_TYPES[a.unitTypeId].name}`,
-    list(state) {
-      const out = [];
-      for (const spaceId in state.spaces) {
-        for (const unitTypeId in UNIT_TYPES) out.push({ type: "PLACE_UNIT", spaceId, unitTypeId });
-      }
-      return out;
-    },
-    // PLACEHOLDER RULE: any empty octagon, free.
-    check(state, a) {
-      const space = state.spaces[a.spaceId];
-      if (!space || space.kind !== "octagon") return no("Units go on octagons.");
-      if (space.unit) return no("That octagon is occupied.");
-      if (!UNIT_TYPES[a.unitTypeId]) return no("Unknown unit.");
-      return OK;
-    },
-    apply(state, a) {
-      state.spaces[a.spaceId].unit = { typeId: a.unitTypeId, owner: state.currentPlayer };
-    },
-  },
+  // ---- Buildings ----
 
   PLACE_BUILDING: {
     label: (a) => `Construct ${BUILDING_TYPES[a.buildingTypeId].name}`,
@@ -101,8 +127,10 @@ const ACTIONS = {
       }
       return out;
     },
-    // PLACEHOLDER RULE: any empty square, free.
+    // PLACEHOLDER RULE: main phase only, any empty square, free.
     check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "square") return no("Buildings go on squares.");
       if (space.building) return no("That square is occupied.");
@@ -117,18 +145,78 @@ const ACTIONS = {
 
 const Rules = {
   createInitialState() {
-    return {
+    const state = {
       spaces: Board.createSpaces(CONFIG.board.octagonRows, CONFIG.board.octagonCols),
       players: CONFIG.players.map((p) => ({
         name: p.name,
         color: p.color,
+        money: CONFIG.startingMoney,
         weapons: Array.from({ length: CONFIG.weaponsPerPlayer }, Armory.createEmptyWeapon),
       })),
       currentPlayer: 0,
       round: 1,
+      phase: PHASES[0].id,
       winner: null,
     };
+    Rules.enterPhase(state);
+    return state;
   },
+
+  // ---------- Money ----------
+
+  // Price to recruit a unit, or null if not decided yet.
+  unitCost(unitTypeId) {
+    const unit = UNIT_TYPES[unitTypeId];
+    return unit.cost ?? CONFIG.unitCosts[unit.category] ?? null;
+  },
+
+  // ---------- Turn phases ----------
+
+
+  phaseIndex(state) {
+    return PHASES.findIndex((p) => p.id === state.phase);
+  },
+
+  // The next phase this turn that needs the player, or null if the turn ends first.
+  nextManualPhase(state) {
+    return PHASES.slice(Rules.phaseIndex(state) + 1).find((p) => !p.auto) || null;
+  },
+
+  // Moves to the next phase (or the next player's turn), then
+  // runs that phase's triggers and skips it if it's automatic.
+  advancePhase(state) {
+    const i = Rules.phaseIndex(state);
+    if (i === PHASES.length - 1) {
+      state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
+      if (state.currentPlayer === 0) state.round++;
+      state.phase = PHASES[0].id;
+    } else {
+      state.phase = PHASES[i + 1].id;
+    }
+    Rules.enterPhase(state);
+  },
+
+  enterPhase(state) {
+    Rules.runPhaseTriggers(state, state.phase);
+    const phase = PHASES[Rules.phaseIndex(state)];
+    if (phase.auto && state.winner === null) Rules.advancePhase(state);
+  },
+
+  // Runs every "at the <phase> of your turn" effect. Any unit or building
+  // type with `triggers: { <phaseId>(state, space) {...} }` in data/ reacts here.
+  // PLACEHOLDER RULE: only the current player's pieces trigger, on their own turn.
+  runPhaseTriggers(state, phaseId) {
+    for (const space of Object.values(state.spaces)) {
+      const piece = space.unit || space.building;
+      if (!piece || piece.owner !== state.currentPlayer) continue;
+      const def = space.unit ? UNIT_TYPES[piece.typeId] : BUILDING_TYPES[piece.typeId];
+      const trigger = def && def.triggers && def.triggers[phaseId];
+      if (trigger) trigger(state, space);
+    }
+    state.winner = Rules.checkWinner(state);
+  },
+
+  // ---------- Actions ----------
 
   check(state, action) {
     const def = ACTIONS[action.type];
@@ -152,8 +240,8 @@ const Rules = {
     return Rules.getLegalActions(state).filter((a) => a.weaponIndex === weaponIndex);
   },
 
-  describe(action) {
-    return ACTIONS[action.type].label(action);
+  describe(action, state) {
+    return ACTIONS[action.type].label(action, state);
   },
 
   // Returns a NEW state with the action applied. Throws if it's illegal.

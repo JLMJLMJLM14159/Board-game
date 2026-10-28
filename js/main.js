@@ -19,9 +19,10 @@ UI.init({
 
   onAction(action) {
     try {
+      const previousPlayer = state.currentPlayer;
       history.push(state);
       state = Rules.applyAction(state, action);
-      if (action.type === "END_TURN") selection = null;
+      if (state.currentPlayer !== previousPlayer) selection = null;
     } catch (err) {
       history.pop();
       alert(err.message);

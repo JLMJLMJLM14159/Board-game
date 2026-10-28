@@ -25,6 +25,21 @@ js/main.js          connects rules and UI, plus undo history
 Rules files (`synergy.js`, `board.js`, `armory.js`, `rules.js`) never touch the screen.
 The UI files never change the game state directly. Every change goes through `Rules.applyAction`.
 
+## Turn structure
+
+Each turn goes **Beginning → Main → Unit control → End**.
+Beginning and End are automatic: they run any triggers ("at the beginning of your turn...")
+and then skip straight on. A unit or building gets a trigger by adding
+`triggers: { beginning(state, space) {...} }` to its entry in `js/data/`.
+
+During **Main** you spend money to recruit units, which are either `civilian` or `military`.
+Prices go in `CONFIG.unitCosts` in `js/config.js`. They're `null` (shown as "price TBD", and free) until decided.
+
+## Layout rule
+
+The whole game must fit on one screen with no page scrolling, on laptops and tablets
+in landscape or portrait. The board shrinks to fit the space that's left.
+
 ## How to add things
 
 - **A weapon base or part:** add an entry to `js/data/weapons.js` using the template there.
