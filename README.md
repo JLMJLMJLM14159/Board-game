@@ -11,20 +11,21 @@ index.html          page layout
 css/style.css       look and feel
 js/config.js        tweakable numbers: board size, players, weapon slots, synergy elements
 js/data/            the catalogues (currently empty, with templates)
-  weapons.js          weapon bases + parts (barrels, mags, attachments)
+  weapons.js          weapon parts, bases included
   units.js            units that go on octagons
   buildings.js        buildings that go on squares
 js/random.js        seeded randomness (undo-safe)
 js/rarity.js        part rarity rolls
 js/synergy.js       the Thermal -> Electrical -> Biological circle
 js/board.js         board shape: spaces and which ones touch
-js/armory.js        weapon-building rules (slots, compatibility)
+js/parts.js         weapon part classes (see below)
+js/armory.js        working with a whole weapon
 js/rules.js         game state + every action the game allows
 js/ui.js            draws everything and reports clicks
 js/main.js          connects rules and UI, plus undo history
 ```
 
-Rules files (`synergy.js`, `board.js`, `armory.js`, `rules.js`) never touch the screen.
+Rules files (`synergy.js`, `board.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
 The UI files never change the game state directly. Every change goes through `Rules.applyAction`.
 
 ## Turn structure
@@ -36,6 +37,21 @@ and then skip straight on. A unit or building gets a trigger by adding
 
 During **Main** you spend money to recruit units, which are either `civilian` or `military`.
 Prices go in `CONFIG.unitCosts` in `js/config.js`. They're `null` (shown as "price TBD", and free) until decided.
+
+## Weapon part classes
+
+```
+WeaponPart                 any part: id, name, synergy, stats
+├── WeaponBase             the weapon's class (pistol, ar...). No rarity.
+└── CustomPart             random rarity, stats x multiplier, optional class restriction
+    ├── Barrel             one per weapon
+    ├── Mag                one per weapon
+    └── Attachment         2 per weapon, each a different type
+```
+
+Each class holds its own rules (`canInstallOn`, `installOn`, `createInstance`, `statsFor`).
+A new kind of part is a new subclass. Parts in play are stored as plain `{ partId, rarity }`
+data so the game state can be copied for undo.
 
 ## Part rarity
 
@@ -53,7 +69,8 @@ in landscape or portrait. The board shrinks to fit the space that's left.
 
 ## How to add things
 
-- **A weapon base or part:** add an entry to `js/data/weapons.js` using the template there.
+- **A weapon base or part:** add `new WeaponBase({...})`, `new Barrel({...})`, `new Mag({...})` or
+  `new Attachment({...})` to the list in `js/data/weapons.js`. Typos in classes or types show an error.
 - **A unit or building:** add an entry to `js/data/units.js` or `js/data/buildings.js`.
 - **A new kind of move:** add an entry to `ACTIONS` in `js/rules.js` with `list`, `check` and `apply`.
   The side panel will offer it automatically wherever it's legal.

@@ -72,12 +72,13 @@ const ACTIONS = {
 
   // ---- Weapons (on the current player's own board) ----
 
-  SET_WEAPON_BASE: {
-    label: (a) => `Build ${WEAPON_BASES[a.baseId].name}`,
+  // Bases and parts both go through here; each part's class decides the rules.
+  INSTALL_PART: {
+    label: (a) => `${WEAPON_PARTS[a.partId].installVerb} ${WEAPON_PARTS[a.partId].name}`,
     list(state) {
       const out = [];
       state.players[state.currentPlayer].weapons.forEach((_, weaponIndex) => {
-        for (const baseId in WEAPON_BASES) out.push({ type: "SET_WEAPON_BASE", weaponIndex, baseId });
+        for (const partId in WEAPON_PARTS) out.push({ type: "INSTALL_PART", weaponIndex, partId });
       });
       return out;
     },
@@ -86,36 +87,11 @@ const ACTIONS = {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
       const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
-      return weapon ? Armory.canSetBase(weapon, a.baseId) : no("No such weapon slot.");
+      return weapon ? Armory.canInstall(weapon, a.partId) : no("No such weapon slot.");
     },
     apply(state, a) {
       const weapons = state.players[state.currentPlayer].weapons;
-      weapons[a.weaponIndex] = Armory.withBase(weapons[a.weaponIndex], a.baseId);
-    },
-  },
-
-  ADD_WEAPON_PART: {
-    label: (a) => `Install ${WEAPON_PARTS[a.partId].name}`,
-    list(state) {
-      const out = [];
-      state.players[state.currentPlayer].weapons.forEach((_, weaponIndex) => {
-        for (const partId in WEAPON_PARTS) out.push({ type: "ADD_WEAPON_PART", weaponIndex, partId });
-      });
-      return out;
-    },
-    // PLACEHOLDER RULE: main phase only, no cost yet, any number per turn.
-    check(state, a) {
-      const phase = inPhase(state, "main");
-      if (!phase.ok) return phase;
-      const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
-      return weapon ? Armory.canAddPart(weapon, a.partId) : no("No such weapon slot.");
-    },
-    // PLACEHOLDER RULE: how parts "appear" (shop, draw, loot...) isn't decided,
-    // so for now the rarity is rolled at the moment the part is installed.
-    apply(state, a) {
-      const weapons = state.players[state.currentPlayer].weapons;
-      const instance = Armory.createPartInstance(state, a.partId);
-      weapons[a.weaponIndex] = Armory.withPart(weapons[a.weaponIndex], instance);
+      weapons[a.weaponIndex] = Armory.install(state, weapons[a.weaponIndex], a.partId);
     },
   },
 

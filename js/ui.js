@@ -131,17 +131,19 @@ const UI = {
     ];
   },
 
-  // A part's name, coloured by its rarity.
+  // A part's name, coloured by its rarity if it has one.
   partHtml(instance) {
-    const rarity = Rarity.get(instance.rarity);
-    return `<b style="color:${rarity.color}" title="${rarity.name} ×${rarity.multiplier}">${WEAPON_PARTS[instance.partId].name}</b>`;
+    const name = WEAPON_PARTS[instance.partId].name;
+    const rarity = instance.rarity && Rarity.get(instance.rarity);
+    return rarity
+      ? `<b style="color:${rarity.color}" title="${rarity.name} ×${rarity.multiplier}">${name}</b>`
+      : `<b>${name}</b>`;
   },
 
   slotRowsHtml(weapon) {
     const empty = `<b class="empty">empty</b>`;
-    const base = Armory.base(weapon);
     return [
-      `<li><span>Base</span>${base ? `<b>${base.name}</b>` : empty}</li>`,
+      `<li><span>Base</span>${weapon.base ? UI.partHtml(weapon.base) : empty}</li>`,
       ...UI.partSlots(weapon).map(([slot, instance]) => `<li><span>${slot}</span>${instance ? UI.partHtml(instance) : empty}</li>`),
     ].join("");
   },
