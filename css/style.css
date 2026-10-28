@@ -1,0 +1,165 @@
+/* ---------- Theme ---------- */
+:root {
+  --bg: #0b0f14;
+  --surface: #131a22;
+  --surface-2: #1b2430;
+  --line: #2a3644;
+  --text: #d6e2ee;
+  --muted: #7f93a8;
+  --accent: #00e5ff;
+  --octagon: #18222d;
+  --square: #222c38;
+  --font: "Segoe UI", system-ui, sans-serif;
+  --mono: "Consolas", "SFMono-Regular", monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+.muted { color: var(--muted); }
+
+button {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- Header ---------- */
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+header h1 { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); }
+#turn { font-weight: 600; flex: 1; }
+.controls { display: flex; gap: 8px; }
+
+/* ---------- Layout ---------- */
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; }
+}
+
+.board-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+}
+#board { width: 100%; max-height: 80vh; display: block; }
+
+aside { display: flex; flex-direction: column; gap: 16px; }
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+.panel h2 { font-size: 14px; margin-bottom: 8px; color: var(--accent); font-family: var(--mono); }
+.panel p { margin: 4px 0; font-size: 14px; }
+.actions { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+/* ---------- Board spaces ---------- */
+.space { cursor: pointer; }
+.space polygon { stroke: var(--line); stroke-width: 1.5; transition: fill 0.1s; }
+.space.octagon polygon { fill: var(--octagon); }
+.space.square polygon { fill: var(--square); }
+.space:hover polygon { fill: var(--surface-2); }
+.space.neighbor polygon { fill: #1d3440; }
+.space.actionable polygon { stroke: #3b6a7a; }
+.space.selected polygon { stroke: var(--accent); stroke-width: 3; fill: #123040; }
+
+.occupant {
+  font-family: var(--mono);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.occupant.octagon { font-size: 18px; }
+.occupant.square { font-size: 9px; }
+
+/* ---------- Synergy circle ---------- */
+#synergy { width: 100%; max-width: 220px; display: block; margin: 0 auto; }
+.synergy-link { stroke: var(--muted); stroke-width: 2; }
+.arrowhead { fill: var(--muted); }
+.synergy-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: #111;
+}
+
+/* ---------- Player boards ---------- */
+#player-boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.player-board {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--player);
+  border-radius: 10px;
+  padding: 12px;
+  opacity: 0.75;
+}
+.player-board.active { opacity: 1; box-shadow: 0 0 0 1px var(--player); }
+.player-board h3 { color: var(--player); font-size: 15px; margin-bottom: 10px; }
+
+.weapons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.weapon {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+}
+.weapon:hover { border-color: var(--muted); }
+.weapon.selected { border-color: var(--accent); }
+.weapon h4 { font-size: 13px; margin-bottom: 6px; }
+.weapon h4 small { color: var(--muted); font-weight: 400; text-transform: uppercase; }
+.weapon ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.weapon li { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; border-bottom: 1px dashed var(--line); }
+.weapon li span { color: var(--muted); }
+.weapon li b { font-weight: 500; text-align: right; }
+.weapon li b.empty { color: #4a5a6a; font-style: italic; font-weight: 400; }
+
+.pips { display: flex; gap: 4px; margin-top: 6px; }
+.pip {
+  font-size: 11px;
+  font-family: var(--mono);
+  min-width: 20px;
+  text-align: center;
+  border-radius: 4px;
+  border: 1px solid var(--c);
+  color: var(--c);
+}

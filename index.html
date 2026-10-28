@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Board Game Prototype</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Board Game Prototype</h1>
+    <div id="turn"></div>
+    <div class="controls">
+      <button id="undo">Undo</button>
+      <button id="end-turn" class="primary">End turn</button>
+      <button id="restart">Restart</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="board-wrap">
+      <svg id="board" aria-label="Main board"></svg>
+    </div>
+
+    <aside>
+      <section class="panel">
+        <h2 id="panel-title"></h2>
+        <div id="panel-body"></div>
+        <div id="panel-actions" class="actions"></div>
+      </section>
+      <section class="panel">
+        <h2>Synergy circle</h2>
+        <svg id="synergy" viewBox="0 0 160 140" aria-label="Synergy circle"></svg>
+      </section>
+    </aside>
+  </main>
+
+  <div id="player-boards"></div>
+
+  <!-- Order matters: config and data first, then logic, then UI, then main. -->
+  <script src="js/config.js"></script>
+  <script src="js/data/weapons.js"></script>
+  <script src="js/data/units.js"></script>
+  <script src="js/data/buildings.js"></script>
+  <script src="js/synergy.js"></script>
+  <script src="js/board.js"></script>
+  <script src="js/armory.js"></script>
+  <script src="js/rules.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
