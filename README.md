@@ -18,7 +18,8 @@ js/random.js        seeded randomness (undo-safe)
 js/rarity.js        part rarity rolls
 js/synergy.js       the Thermal -> Electrical -> Biological circle
 js/board.js         board shape: spaces, which ones touch, distances
-js/units.js         unit movement, range and per-turn tracking
+js/units.js         unit stats, health and per-turn tracking
+js/market.js        the weapon parts offered each main phase
 js/parts.js         weapon part classes (see below)
 js/armory.js        working with a whole weapon
 js/rules.js         game state + every action the game allows
@@ -36,23 +37,33 @@ Beginning and End are automatic: they run any triggers ("at the beginning of you
 and then skip straight on. A unit or building gets a trigger by adding
 `triggers: { beginning(state, space) {...} }` to its entry in `js/data/`.
 
-During **Main** you spend money to recruit units, which are either `civilian` or `military`.
-Prices go in `CONFIG.unitCosts` in `js/config.js`. They're `null` (shown as "price TBD", and free) until decided.
+At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
+
+During **Main**:
+- the **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
+  the moment a part appears there. Click an offer, then put it on one of your weapons;
+- you can **buy units** (civilian or military) into your reserve, and **deploy** reserve units onto
+  empty octagons. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
+  Starting units go in `CONFIG.startingUnits`.
 
 During **Unit control** each of your units can:
-- **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals);
-- **shoot** an enemy unit within its `range`, counted without diagonals (so a diagonal neighbour is 2 away).
+- **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals),
+  never onto or through other units;
+- **shoot** enemy units within its `range` (counted without diagonals, so a diagonal neighbour is 2 away),
+  up to `shots` times per turn, each dealing its `damage`. Only octagons can be targeted.
 
-Both stats come from the unit type in `js/data/units.js`, plus or minus the `movement` / `range`
-stats of the parts on its weapons. Click a unit to see where it can go (green) and what it can hit (red),
-then click the space to do it.
+A unit's stats (`health`, `movement`, `range`, `damage`, `shots`) come from its type in `js/data/units.js`,
+plus or minus the same-named stats of the parts on its weapons. The game stores damage taken, not current
+health, so current health = max health − damage taken: when max health changes, current health changes by the
+same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
+can hit (red), then click the space to do it.
 
 ## Weapon part classes
 
 ```
 WeaponPart                 any part: id, name, synergy, stats
 ├── WeaponBase             the weapon's class (pistol, ar...). No rarity.
-└── CustomPart             random rarity, stats x multiplier, optional class restriction
+└── CustomPart             random rarity, optional legendary version, optional class restriction
     ├── Barrel             one per weapon
     ├── Mag                one per weapon
     └── Attachment         2 per weapon, each a different type
@@ -64,9 +75,11 @@ data so the game state can be copied for undo.
 
 ## Part rarity
 
-Every weapon part except the base gets a random rarity when it appears in the game:
-Common ×1, Uncommon ×2, Rare ×3, Epic ×5, Legendary ×8. The multiplier scales the part's stats.
-Rarities, colours, multipliers and odds are in `CONFIG.rarities`.
+Every weapon part except the base gets a random rarity when it appears in the market:
+Common ×1, Uncommon ×2, Rare ×3, Epic ×5, Legendary ×8. The multiplier only applies to the stats a part
+lists in `rarityStats`, which are shown bold in the rarity colour; every other stat stays as written.
+A part can also have a separate `legendary` version that replaces it when it rolls legendary,
+instead of multiplying by 8. Rarities, colours, multipliers and odds are in `CONFIG.rarities`.
 
 All randomness goes through `js/random.js`, which stores its position in the game state,
 so undoing and redoing a roll gives the same result.

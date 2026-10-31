@@ -25,6 +25,10 @@ UI.init({
       if (state.currentPlayer !== previousPlayer) selection = null;
       // Keep a moving unit selected so it can keep moving.
       if (action.type === "MOVE_UNIT") selection = { kind: "space", id: action.to };
+      // Show the weapon a market part just went onto.
+      if (action.type === "INSTALL_PART") selection = { kind: "weapon", player: state.currentPlayer, weaponIndex: action.weaponIndex };
+      // Show the unit that was just deployed.
+      if (action.type === "DEPLOY_UNIT") selection = { kind: "space", id: action.spaceId };
     } catch (err) {
       history.pop();
       alert(err.message);

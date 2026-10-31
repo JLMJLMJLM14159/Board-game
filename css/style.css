@@ -105,7 +105,7 @@ main {
 aside {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto auto;
   gap: var(--gap);
 }
 
@@ -129,7 +129,7 @@ aside {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
   }
-  aside { grid-template-rows: auto auto; }
+  aside { grid-template-rows: auto auto auto; }
   #panel { height: 150px; }
   #player-boards { grid-template-columns: 1fr 1fr; }
 }
@@ -156,6 +156,44 @@ aside {
 }
 .occupant.octagon { font-size: 18px; }
 .occupant.square { font-size: 9px; }
+.health {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--muted);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+b.scaled { font-weight: 800; }
+
+/* ---------- Market ---------- */
+#market { display: grid; gap: 4px; padding: 8px 10px; }
+.market-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.chips { display: flex; gap: 4px; min-width: 0; }
+.chip {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 3px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+.chip b { font-weight: 600; }
+.chip.selected { border-color: var(--accent); }
+.chip.taken {
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  color: #4a5a6a;
+  font-style: italic;
+}
 
 /* ---------- Player boards ---------- */
 #player-boards {

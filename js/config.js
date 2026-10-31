@@ -23,9 +23,22 @@ const CONFIG = {
   // PLACEHOLDER: starting money for each player.
   startingMoney: 0,
 
+  // Money gained at the beginning of each of your turns:
+  // base + perReserveUnit for every unit you have that isn't deployed.
+  income: { base: 1, perReserveUnit: 1 },
+
+  // ---- Market ----
+  // Offered to the current player at the start of each main phase.
+  market: { parts: 5, bases: 2 },
+
   // ---- Units ----
   // Every unit in data/units.js belongs to one of these categories.
   unitCategories: ["civilian", "military"],
+
+  // Units each player starts with, in their reserve (not deployed). List unit ids,
+  // repeats allowed, e.g. ["scout_drone", "scout_drone", "medic"].
+  // PLACEHOLDER: decide once units exist.
+  startingUnits: [],
 
   // Recruit price for each category. A unit can override it with its own `cost`.
   // null = not decided yet; recruiting is free until you set a number.

@@ -3,8 +3,10 @@
 //
 //   WeaponPart                 any part: id, name, synergy, stats
 //   ├── WeaponBase             the weapon's class (pistol, ar...). No rarity.
-//   └── CustomPart             random rarity, stats x rarity multiplier,
-//       │                      can be limited to some weapon classes
+//   └── CustomPart             random rarity that multiplies only the stats
+//       │                      listed in rarityStats; optional separate
+//       │                      legendary version; can be limited to some
+//       │                      weapon classes
 //       ├── Barrel             one per weapon
 //       ├── Mag                one per weapon
 //       └── Attachment         up to 2 per weapon, each a different type
@@ -44,9 +46,30 @@ class WeaponPart {
     return { partId: this.id, rarity: null };
   }
 
-  // This instance's stats after any modifiers.
+  // The details that apply to one copy of this part. CustomPart swaps in
+  // the separate legendary version when there is one.
+  versionFor(instance) {
+    return { name: this.name, stats: this.stats, description: this.description, rarityStats: [] };
+  }
+
+  nameFor(instance) {
+    return this.versionFor(instance).name;
+  }
+
+  // The stats rarity multiplies for this copy (shown bold in the rarity colour).
+  scaledStatsFor(instance) {
+    return instance.rarity ? this.versionFor(instance).rarityStats : [];
+  }
+
+  // This copy's stats: only the stats listed in rarityStats are multiplied.
   statsFor(instance) {
-    return { ...this.stats };
+    const scaled = this.scaledStatsFor(instance);
+    const m = scaled.length ? Rarity.multiplier(instance.rarity) : 1;
+    const stats = {};
+    for (const [key, value] of Object.entries(this.versionFor(instance).stats)) {
+      stats[key] = scaled.includes(key) ? value * m : value;
+    }
+    return stats;
   }
 
   canInstallOn(weapon) {
@@ -82,23 +105,33 @@ class CustomPart extends WeaponPart {
   constructor(def) {
     super(def);
     this.allowedClasses = def.allowedClasses ?? null; // null = fits any base
+
+    // Only these stats are multiplied by rarity. Every other stat stays as written.
+    this.rarityStats = def.rarityStats ?? [];
+    for (const key of this.rarityStats) {
+      if (typeof this.stats[key] !== "number") throw new Error(`${def.id}: rarityStats "${key}" isn't a number in stats.`);
+    }
+
+    // Optional separate legendary version: { name?, stats?, description? }.
+    // A copy that rolls legendary uses it as written instead of multiplying by 8.
+    this.legendary = def.legendary ?? null;
   }
 
-  // Rolls this copy's random rarity.
-  // PLACEHOLDER RULE: how parts "appear" isn't decided, so for now this
-  // happens when the part is installed.
+  // Rolls this copy's random rarity. Called when the part appears in the market.
   createInstance(state) {
     return { partId: this.id, rarity: Rarity.roll(state) };
   }
 
-  // PLACEHOLDER RULE: assumes the rarity multiplier scales every numeric stat.
-  statsFor(instance) {
-    const m = Rarity.multiplier(instance.rarity);
-    const stats = {};
-    for (const [key, value] of Object.entries(this.stats)) {
-      stats[key] = typeof value === "number" ? value * m : value;
+  versionFor(instance) {
+    if (instance.rarity === "legendary" && this.legendary) {
+      return {
+        name: this.legendary.name ?? this.name,
+        stats: this.legendary.stats ?? this.stats,
+        description: this.legendary.description ?? this.description,
+        rarityStats: [], // the legendary version's numbers are already final
+      };
     }
-    return stats;
+    return { name: this.name, stats: this.stats, description: this.description, rarityStats: this.rarityStats };
   }
 
   // Needs a base, and one of an allowed class.

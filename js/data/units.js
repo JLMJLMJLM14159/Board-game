@@ -10,9 +10,12 @@
 //     category: "military",    // one of CONFIG.unitCategories: "civilian" or "military"
 //     cost: null,              // optional: overrides CONFIG.unitCosts for this unit
 //     synergy: "electrical",   // optional
-//     stats: {
-//       movement: 2,           // steps per turn through shared sides (weapons can change it)
-//       range: 1,              // how far it can shoot, no diagonals (weapons can change it)
+//     stats: {                 // weapons can raise or lower any of these
+//       health: 5,             // max health (needed: a unit at 0 health is removed)
+//       movement: 2,           // steps per turn through shared sides
+//       range: 1,              // how far it can shoot, no diagonals
+//       damage: 1,             // damage per shot
+//       shots: 1,              // shots per turn
 //     },
 //     description: "",
 //
@@ -24,6 +27,6 @@
 //     },
 //   },
 //
-// Weapon parts change a unit's movement or range through their own
-// stats, e.g. a heavy barrel with stats: { movement: -1, range: 2 }.
+// Weapon parts change a unit's stats through their own stats with the
+// same names, e.g. a heavy barrel with stats: { movement: -1, range: 2 }.
 const UNIT_TYPES = {};

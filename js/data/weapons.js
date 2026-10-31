@@ -5,7 +5,9 @@
 //
 // Don't give parts a rarity here: each copy of a barrel, mag or
 // attachment gets a random rarity (common -> legendary) when it
-// appears in the game, which multiplies its stats. Bases have no rarity.
+// appears in the market. Rarity only multiplies the stats you list in
+// `rarityStats` (shown bold in the rarity colour); the rest never change.
+// Bases have no rarity.
 // =============================================================
 
 const WEAPON_PARTS = partCatalogue([
@@ -25,8 +27,17 @@ const WEAPON_PARTS = partCatalogue([
   //   name: "Coil Barrel",
   //   synergy: "electrical",        // optional
   //   allowedClasses: null,         // optional: e.g. ["ar", "sniper"]; null = fits any base
-  //   stats: {},
+  //   stats: { damage: 2, range: 1, movement: -1 },
+  //   rarityStats: ["damage"],      // only damage is multiplied by rarity
   //   description: "",
+  //
+  //   // Optional: a separate version used when this part rolls legendary,
+  //   // instead of multiplying by 8. Anything left out stays the same.
+  //   legendary: {
+  //     name: "Singularity Coil",
+  //     stats: { damage: 12, range: 3, movement: 0 },
+  //     description: "",
+  //   },
   // }),
 
   // ---- Attachments ----
@@ -37,6 +48,8 @@ const WEAPON_PARTS = partCatalogue([
   //   synergy: "thermal",           // optional
   //   allowedClasses: null,         // optional
   //   stats: {},
+  //   rarityStats: [],              // optional
+  //   legendary: null,              // optional
   //   description: "",
   // }),
 ]);

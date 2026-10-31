@@ -15,10 +15,11 @@
 
 // The parts of a turn, in order. `auto` phases have no player decisions:
 // they run their triggers ("at the beginning of your turn...") and the
-// game moves straight on to the next phase.
+// game moves straight on to the next phase. `onEnter` is the game's own
+// built-in rule for that phase, which runs before any piece's triggers.
 const PHASES = [
-  { id: "beginning",   name: "Beginning",    auto: true },
-  { id: "main",        name: "Main",         auto: false },
+  { id: "beginning",   name: "Beginning",    auto: true,  onEnter: (state) => Rules.startTurn(state) },
+  { id: "main",        name: "Main",         auto: false, onEnter: (state) => Market.refresh(state) },
   { id: "unitControl", name: "Unit control", auto: false },
   { id: "end",         name: "End",          auto: true },
 ];
@@ -30,6 +31,8 @@ const no = (reason) => ({ ok: false, reason });
 const inPhase = (state, phaseId) =>
   state.phase === phaseId ? OK : no(`Only during the ${PHASES.find((p) => p.id === phaseId).name} phase.`);
 
+const price = (cost) => (cost === null ? "price TBD" : `$${cost}`);
+
 const ACTIONS = {
   NEXT_PHASE: {
     label: (a, state) => (Rules.nextManualPhase(state) ? `Go to ${Rules.nextManualPhase(state).name}` : "End turn"),
@@ -38,41 +41,50 @@ const ACTIONS = {
     apply: (state) => Rules.advancePhase(state),
   },
 
-  // ---- Units ----
+  // ---- Units: buy into reserve, then deploy onto the board ----
 
-  RECRUIT_UNIT: {
-    label(a) {
-      const cost = Rules.unitCost(a.unitTypeId);
-      return `Recruit ${UNIT_TYPES[a.unitTypeId].name} (${cost === null ? "price TBD" : `$${cost}`})`;
-    },
-    list(state) {
-      const out = [];
-      for (const spaceId in state.spaces) {
-        for (const unitTypeId in UNIT_TYPES) out.push({ type: "RECRUIT_UNIT", spaceId, unitTypeId });
-      }
-      return out;
-    },
+  BUY_UNIT: {
+    label: (a) => `Buy ${UNIT_TYPES[a.unitTypeId].name} (${price(Rules.unitCost(a.unitTypeId))})`,
+    list: () => Object.keys(UNIT_TYPES).map((unitTypeId) => ({ type: "BUY_UNIT", unitTypeId })),
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
-      const space = state.spaces[a.spaceId];
-      // PLACEHOLDER RULE: a recruited unit can go on any empty octagon.
-      if (!space || space.kind !== "octagon") return no("Units go on octagons.");
-      if (space.unit) return no("That octagon is occupied.");
       if (!UNIT_TYPES[a.unitTypeId]) return no("Unknown unit.");
-      const cost = Rules.unitCost(a.unitTypeId) ?? 0;
-      if (state.players[state.currentPlayer].money < cost) return no("Not enough money.");
+      if (state.players[state.currentPlayer].money < (Rules.unitCost(a.unitTypeId) ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
-      state.players[state.currentPlayer].money -= Rules.unitCost(a.unitTypeId) ?? 0;
-      state.spaces[a.spaceId].unit = {
-        id: state.nextUnitId++,
-        typeId: a.unitTypeId,
-        owner: state.currentPlayer,
-        stepsTaken: 0,
-        hasShot: false,
-      };
+      const player = state.players[state.currentPlayer];
+      player.money -= Rules.unitCost(a.unitTypeId) ?? 0;
+      player.reserve.push(Units.create(state, a.unitTypeId, state.currentPlayer));
+    },
+  },
+
+  DEPLOY_UNIT: {
+    label: (a) => `Deploy ${UNIT_TYPES[a.unitTypeId].name}`,
+    list(state) {
+      // One option per unit type in reserve, not per unit, so the buttons don't repeat.
+      const types = new Set(state.players[state.currentPlayer].reserve.map((u) => u.typeId));
+      const out = [];
+      for (const spaceId in state.spaces) {
+        for (const unitTypeId of types) out.push({ type: "DEPLOY_UNIT", spaceId, unitTypeId });
+      }
+      return out;
+    },
+    // PLACEHOLDER RULE: main phase only, onto any empty octagon, free.
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      if (!state.players[state.currentPlayer].reserve.some((u) => u.typeId === a.unitTypeId)) return no("None in reserve.");
+      const space = state.spaces[a.spaceId];
+      if (!space || space.kind !== "octagon") return no("Units go on octagons.");
+      if (space.unit) return no("That octagon is occupied.");
+      return OK;
+    },
+    apply(state, a) {
+      const reserve = state.players[state.currentPlayer].reserve;
+      const [unit] = reserve.splice(reserve.findIndex((u) => u.typeId === a.unitTypeId), 1);
+      state.spaces[a.spaceId].unit = unit;
     },
   },
 
@@ -99,10 +111,9 @@ const ACTIONS = {
       const to = state.spaces[a.to];
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
       if (!to || !Board.octagonNeighbors(state.spaces, from).includes(to.id)) return no("Units move one side-sharing octagon at a time.");
-      // PLACEHOLDER RULE: units can't move onto or through other units.
-      if (to.unit) return no("That octagon is occupied.");
-      // PLACEHOLDER RULE: a unit can't move after it has shot.
-      if (from.unit.hasShot) return no("This unit has already shot.");
+      if (to.unit) return no("Units can't move onto or through other units.");
+      // PLACEHOLDER RULE: a unit can't move after it has started shooting.
+      if (from.unit.shotsTaken > 0) return no("This unit has already shot.");
       if (Units.movesLeft(state, from.unit) <= 0) return no("No movement left.");
       return OK;
     },
@@ -114,9 +125,11 @@ const ACTIONS = {
     },
   },
 
-  // Shoot at an enemy unit within range (counted without diagonals).
+  // Shoot an enemy unit within range (counted without diagonals). Only
+  // octagons can be targeted, so buildings can't be shot.
   SHOOT: {
-    label: (a, state) => `Shoot ${Units.def(state.spaces[a.target].unit).name}`,
+    label: (a, state) =>
+      `Shoot ${Units.def(state.spaces[a.target].unit).name} (${Units.damage(state, state.spaces[a.from].unit)} damage)`,
     list(state) {
       const spaces = Object.values(state.spaces);
       const out = [];
@@ -134,40 +147,50 @@ const ACTIONS = {
       const from = state.spaces[a.from];
       const target = state.spaces[a.target];
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
-      if (!target || !target.unit || target.unit.owner === state.currentPlayer) return no("Choose an enemy unit.");
-      // PLACEHOLDER RULE: one shot per unit per turn.
-      if (from.unit.hasShot) return no("This unit has already shot.");
+      if (!target || target.kind !== "octagon" || !target.unit || target.unit.owner === state.currentPlayer) {
+        return no("Choose an enemy unit.");
+      }
+      if (Units.shotsLeft(state, from.unit) <= 0) return no("No shots left this turn.");
       if (Board.distance(from, target) > Units.range(state, from.unit)) return no("Out of range.");
       return OK;
     },
-    // PLACEHOLDER RULE: what a hit does (damage, destroying the unit...) isn't decided yet.
     apply(state, a) {
-      state.spaces[a.from].unit.hasShot = true;
+      const shooter = state.spaces[a.from].unit;
+      shooter.shotsTaken++;
+      state.spaces[a.target].unit.damageTaken += Units.damage(state, shooter);
     },
   },
 
-  // ---- Weapons (on the current player's own board) ----
+  // ---- Weapons: take a part from the market onto one of your weapons ----
 
-  // Bases and parts both go through here; each part's class decides the rules.
   INSTALL_PART: {
-    label: (a) => `${WEAPON_PARTS[a.partId].installVerb} ${WEAPON_PARTS[a.partId].name}`,
+    label(a, state) {
+      const instance = Market.offer(state, a.pile, a.slot);
+      const part = WEAPON_PARTS[instance.partId];
+      return `${part.installVerb} ${part.nameFor(instance)} on Weapon ${a.weaponIndex + 1}`;
+    },
     list(state) {
       const out = [];
       state.players[state.currentPlayer].weapons.forEach((_, weaponIndex) => {
-        for (const partId in WEAPON_PARTS) out.push({ type: "INSTALL_PART", weaponIndex, partId });
+        for (const pile of ["bases", "parts"]) {
+          (state.market ? state.market[pile] : []).forEach((_, slot) => out.push({ type: "INSTALL_PART", weaponIndex, pile, slot }));
+        }
       });
       return out;
     },
-    // PLACEHOLDER RULE: main phase only, no cost yet, any number per turn.
+    // PLACEHOLDER RULE: market parts are free and you can take as many as you like.
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
+      const instance = Market.offer(state, a.pile, a.slot);
+      if (!instance) return no("That offer has been taken.");
       const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
-      return weapon ? Armory.canInstall(weapon, a.partId) : no("No such weapon slot.");
+      return weapon ? Armory.canInstall(weapon, instance.partId) : no("No such weapon slot.");
     },
     apply(state, a) {
       const weapons = state.players[state.currentPlayer].weapons;
-      weapons[a.weaponIndex] = Armory.install(state, weapons[a.weaponIndex], a.partId);
+      weapons[a.weaponIndex] = Armory.install(weapons[a.weaponIndex], Market.offer(state, a.pile, a.slot));
+      state.market[a.pile][a.slot] = null;
     },
   },
 
@@ -202,33 +225,47 @@ const Rules = {
   createInitialState() {
     const state = {
       spaces: Board.createSpaces(CONFIG.board.octagonRows, CONFIG.board.octagonCols),
-      players: CONFIG.players.map((p) => ({
-        name: p.name,
-        color: p.color,
-        money: CONFIG.startingMoney,
-        weapons: Array.from({ length: CONFIG.weaponsPerPlayer }, Armory.createEmptyWeapon),
-      })),
+      players: [],
       currentPlayer: 0,
       round: 1,
       phase: PHASES[0].id,
       winner: null,
       rngState: Random.newSeed(),
       nextUnitId: 1,
+      market: null,
     };
+    state.players = CONFIG.players.map((p, i) => ({
+      name: p.name,
+      color: p.color,
+      money: CONFIG.startingMoney,
+      reserve: CONFIG.startingUnits.map((typeId) => Units.create(state, typeId, i)),
+      weapons: Array.from({ length: CONFIG.weaponsPerPlayer }, Armory.createEmptyWeapon),
+    }));
     Rules.enterPhase(state);
     return state;
   },
 
   // ---------- Money ----------
 
-  // Price to recruit a unit, or null if not decided yet.
+  // Price to buy a unit, or null if not decided yet.
   unitCost(unitTypeId) {
     const unit = UNIT_TYPES[unitTypeId];
     return unit.cost ?? CONFIG.unitCosts[unit.category] ?? null;
   },
 
-  // ---------- Turn phases ----------
+  // Money the current player gains at the beginning of their turn:
+  // 1 + 1 for every unit they have that isn't deployed.
+  income(state) {
+    return CONFIG.income.base + CONFIG.income.perReserveUnit * state.players[state.currentPlayer].reserve.length;
+  },
 
+  // Built-in beginning-of-turn rule.
+  startTurn(state) {
+    Units.resetTurn(state, state.currentPlayer);
+    state.players[state.currentPlayer].money += Rules.income(state);
+  },
+
+  // ---------- Turn phases ----------
 
   phaseIndex(state) {
     return PHASES.findIndex((p) => p.id === state.phase);
@@ -240,14 +277,13 @@ const Rules = {
   },
 
   // Moves to the next phase (or the next player's turn), then
-  // runs that phase's triggers and skips it if it's automatic.
+  // runs that phase's rules and triggers and skips it if it's automatic.
   advancePhase(state) {
     const i = Rules.phaseIndex(state);
     if (i === PHASES.length - 1) {
       state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
       if (state.currentPlayer === 0) state.round++;
       state.phase = PHASES[0].id;
-      Units.resetTurn(state, state.currentPlayer);
     } else {
       state.phase = PHASES[i + 1].id;
     }
@@ -255,8 +291,9 @@ const Rules = {
   },
 
   enterPhase(state) {
-    Rules.runPhaseTriggers(state, state.phase);
     const phase = PHASES[Rules.phaseIndex(state)];
+    if (phase.onEnter) phase.onEnter(state);
+    Rules.runPhaseTriggers(state, state.phase);
     if (phase.auto && state.winner === null) Rules.advancePhase(state);
   },
 
@@ -271,6 +308,7 @@ const Rules = {
       const trigger = def && def.triggers && def.triggers[phaseId];
       if (trigger) trigger(state, space);
     }
+    Units.removeDead(state);
     state.winner = Rules.checkWinner(state);
   },
 
@@ -293,9 +331,18 @@ const Rules = {
     return Rules.getLegalActions(state).filter((a) => a.spaceId === spaceId || a.from === spaceId);
   },
 
-  // Legal actions that target one of the current player's weapons.
+  // Legal actions that put a part on one of the current player's weapons.
   getActionsForWeapon(state, weaponIndex) {
     return Rules.getLegalActions(state).filter((a) => a.weaponIndex === weaponIndex);
+  },
+
+  // Legal actions that take one market offer.
+  getActionsForOffer(state, pile, slot) {
+    return Rules.getLegalActions(state).filter((a) => a.pile === pile && a.slot === slot);
+  },
+
+  getActionsOfType(state, type) {
+    return Rules.getLegalActions(state).filter((a) => a.type === type);
   },
 
   describe(action, state) {
@@ -308,6 +355,7 @@ const Rules = {
     if (!result.ok) throw new Error(result.reason);
     const next = structuredClone(state);
     ACTIONS[action.type].apply(next, action);
+    Units.removeDead(next);
     next.winner = Rules.checkWinner(next);
     return next;
   },

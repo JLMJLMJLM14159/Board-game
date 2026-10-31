@@ -41,10 +41,8 @@ const Armory = {
     return part ? part.canInstallOn(weapon) : { ok: false, reason: "Unknown part." };
   },
 
-  // Creates a new copy of the part (rolling its rarity, if it has one)
-  // and returns a NEW weapon with it installed.
-  install(state, weapon, partId) {
-    const part = WEAPON_PARTS[partId];
-    return part.installOn(weapon, part.createInstance(state));
+  // Returns a NEW weapon with this part instance (e.g. from the market) installed.
+  install(weapon, instance) {
+    return WEAPON_PARTS[instance.partId].installOn(weapon, instance);
   },
 };

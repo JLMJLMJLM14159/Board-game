@@ -1,21 +1,28 @@
 // =============================================================
-// units.js — working with units on the board. Pure logic, no drawing.
+// units.js — working with units. Pure logic, no drawing.
 // The catalogue lives in data/units.js.
 //
-// A unit on the board (inside an octagon's `unit` slot) looks like:
+// A unit (on an octagon, or in a player's reserve) looks like:
 //   {
 //     id: 7,              // unique, so it can be tracked as it moves
 //     typeId: "scout_drone",
 //     owner: 0,           // player index
+//     damageTaken: 0,     // current health = max health - damageTaken
 //     stepsTaken: 0,      // moves used this turn
-//     hasShot: false,     // shot this turn
+//     shotsTaken: 0,      // shots used this turn
 //   }
 //
-// Movement and range are NEVER stored: they're worked out from the
-// unit's type and its weapons every time they're asked for.
+// Stats (movement, range, health, damage, shots) are NEVER stored: they're
+// worked out from the unit's type and its weapons every time they're asked for.
+// Storing damage taken instead of current health means that when max health
+// changes, current health changes by the same amount automatically.
 // =============================================================
 
 const Units = {
+  create(state, typeId, owner) {
+    return { id: state.nextUnitId++, typeId, owner, damageTaken: 0, stepsTaken: 0, shotsTaken: 0 };
+  },
+
   def(unit) {
     return UNIT_TYPES[unit.typeId];
   },
@@ -27,7 +34,7 @@ const Units = {
   },
 
   // Total of one stat across every part on the unit's weapons
-  // (rarity multipliers applied). Negative values lower the stat.
+  // (rarity applied). Negative values lower the stat.
   weaponModifier(state, unit, stat) {
     let total = 0;
     for (const weapon of Units.weaponsOf(state, unit)) {
@@ -55,17 +62,47 @@ const Units = {
     return Units.stat(state, unit, "range");
   },
 
+  maxHealth(state, unit) {
+    return Units.stat(state, unit, "health");
+  },
+
+  health(state, unit) {
+    return Units.maxHealth(state, unit) - unit.damageTaken;
+  },
+
+  // Damage dealt by each shot.
+  damage(state, unit) {
+    return Units.stat(state, unit, "damage");
+  },
+
+  // Shots the unit can fire each turn.
+  shots(state, unit) {
+    return Units.stat(state, unit, "shots");
+  },
+
   movesLeft(state, unit) {
     return Math.max(0, Units.movement(state, unit) - unit.stepsTaken);
   },
 
-  // Clears per-turn tracking for one player's units (called as their turn starts).
+  shotsLeft(state, unit) {
+    return Math.max(0, Units.shots(state, unit) - unit.shotsTaken);
+  },
+
+  // Clears per-turn tracking for one player's deployed units (called as their turn starts).
   resetTurn(state, player) {
     for (const space of Object.values(state.spaces)) {
       if (space.unit && space.unit.owner === player) {
         space.unit.stepsTaken = 0;
-        space.unit.hasShot = false;
+        space.unit.shotsTaken = 0;
       }
+    }
+  },
+
+  // Removes every deployed unit whose health has reached 0, whether from
+  // damage or from its max health dropping.
+  removeDead(state) {
+    for (const space of Object.values(state.spaces)) {
+      if (space.unit && Units.health(state, space.unit) <= 0) space.unit = null;
     }
   },
 };
