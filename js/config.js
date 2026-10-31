@@ -13,11 +13,23 @@ const CONFIG = {
   },
 
   // ---- Players ----
-  // PLACEHOLDER: player count, names and colours.
+  // The game is for 2 players: Player 1 starts at the bottom, Player 2 at the top.
   players: [
     { name: "Player 1", color: "#4fc3f7" },
     { name: "Player 2", color: "#ba68c8" },
   ],
+
+  // ---- Territory ----
+  // Buildings each player starts with, one list per player. `row`/`col` pick the
+  // square (squares run 0 to octagonRows-2 / octagonCols-2). Update these if the
+  // board size changes. They're placed opposite each other so neither side is favoured.
+  startingBuildings: [
+    [{ typeId: "hq", row: 7, col: 3 }],   // Player 1: bottom edge
+    [{ typeId: "hq", row: 0, col: 4 }],   // Player 2: top edge
+  ],
+
+  // How many of the 4 octagons around a building an enemy must control to capture it.
+  captureThreshold: 3,
 
   // ---- Money ----
   // PLACEHOLDER: starting money for each player.

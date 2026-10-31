@@ -21,13 +21,14 @@ const Board = {
   octagonId: (r, c) => `O-${r}-${c}`,
   squareId: (r, c) => `S-${r}-${c}`,
 
-  // Builds every space as an object. Octagons hold a `unit`, squares a `building`.
+  // Builds every space as an object. Octagons hold a `unit` and remember who
+  // controls them (`controller`); squares hold a `building`.
   createSpaces(rows, cols) {
     const spaces = {};
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const id = Board.octagonId(r, c);
-        spaces[id] = { id, kind: "octagon", row: r, col: c, unit: null };
+        spaces[id] = { id, kind: "octagon", row: r, col: c, unit: null, controller: null };
       }
     }
     for (let r = 0; r < rows - 1; r++) {

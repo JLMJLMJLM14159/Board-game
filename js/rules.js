@@ -71,7 +71,8 @@ const ACTIONS = {
       }
       return out;
     },
-    // PLACEHOLDER RULE: main phase only, onto any empty octagon, free.
+    // Onto an empty octagon touching one of your deployable buildings.
+    // PLACEHOLDER RULE: main phase only, free.
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
@@ -79,12 +80,14 @@ const ACTIONS = {
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "octagon") return no("Units go on octagons.");
       if (space.unit) return no("That octagon is occupied.");
+      if (!Territory.canDeployAt(state, state.currentPlayer, space)) return no("Must touch one of your deployable buildings.");
       return OK;
     },
     apply(state, a) {
       const reserve = state.players[state.currentPlayer].reserve;
       const [unit] = reserve.splice(reserve.findIndex((u) => u.typeId === a.unitTypeId), 1);
       state.spaces[a.spaceId].unit = unit;
+      Territory.claim(state.spaces[a.spaceId], unit.owner);
     },
   },
 
@@ -122,6 +125,7 @@ const ACTIONS = {
       unit.stepsTaken++;
       state.spaces[a.to].unit = unit;
       state.spaces[a.from].unit = null;
+      Territory.claim(state.spaces[a.to], unit.owner);
     },
   },
 
@@ -197,7 +201,7 @@ const ACTIONS = {
   // ---- Buildings ----
 
   PLACE_BUILDING: {
-    label: (a) => `Construct ${BUILDING_TYPES[a.buildingTypeId].name}`,
+    label: (a) => `Build ${BUILDING_TYPES[a.buildingTypeId].name} (${price(BUILDING_TYPES[a.buildingTypeId].cost ?? null)})`,
     list(state) {
       const out = [];
       for (const spaceId in state.spaces) {
@@ -205,17 +209,23 @@ const ACTIONS = {
       }
       return out;
     },
-    // PLACEHOLDER RULE: main phase only, any empty square, free.
+    // On an empty square touching one of your units.
+    // PLACEHOLDER RULE: main phase only.
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
+      const def = BUILDING_TYPES[a.buildingTypeId];
+      if (!def) return no("Unknown building.");
+      if (!def.buildable) return no(`${def.name} can't be built.`);
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "square") return no("Buildings go on squares.");
       if (space.building) return no("That square is occupied.");
-      if (!BUILDING_TYPES[a.buildingTypeId]) return no("Unknown building.");
+      if (!Territory.canBuildAt(state, state.currentPlayer, space)) return no("Must touch one of your units.");
+      if (state.players[state.currentPlayer].money < (def.cost ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
+      state.players[state.currentPlayer].money -= BUILDING_TYPES[a.buildingTypeId].cost ?? 0;
       state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer };
     },
   },
@@ -241,6 +251,7 @@ const Rules = {
       reserve: CONFIG.startingUnits.map((typeId) => Units.create(state, typeId, i)),
       weapons: Array.from({ length: CONFIG.weaponsPerPlayer }, Armory.createEmptyWeapon),
     }));
+    Territory.placeStartingBuildings(state);
     Rules.enterPhase(state);
     return state;
   },
@@ -308,7 +319,14 @@ const Rules = {
       const trigger = def && def.triggers && def.triggers[phaseId];
       if (trigger) trigger(state, space);
     }
+    Rules.settle(state);
+  },
+
+  // Things that follow automatically from any change: dead units are removed,
+  // buildings change hands, and the winner is checked.
+  settle(state) {
     Units.removeDead(state);
+    Territory.captureBuildings(state);
     state.winner = Rules.checkWinner(state);
   },
 
@@ -355,8 +373,7 @@ const Rules = {
     if (!result.ok) throw new Error(result.reason);
     const next = structuredClone(state);
     ACTIONS[action.type].apply(next, action);
-    Units.removeDead(next);
-    next.winner = Rules.checkWinner(next);
+    Rules.settle(next);
     return next;
   },
 

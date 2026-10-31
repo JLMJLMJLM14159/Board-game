@@ -155,7 +155,9 @@ aside {
   pointer-events: none;
 }
 .occupant.octagon { font-size: 18px; }
-.occupant.square { font-size: 9px; }
+.occupant.square { font-size: 9px; fill: #0b0f14; }
+.tint { pointer-events: none; opacity: 0.22; }
+.tint.building { opacity: 0.85; }
 .health {
   font-family: var(--mono);
   font-size: 10px;

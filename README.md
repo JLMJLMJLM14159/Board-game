@@ -20,6 +20,7 @@ js/synergy.js       the Thermal -> Electrical -> Biological circle
 js/board.js         board shape: spaces, which ones touch, distances
 js/units.js         unit stats, health and per-turn tracking
 js/market.js        the weapon parts offered each main phase
+js/territory.js     octagon control, building capture, where you can deploy and build
 js/parts.js         weapon part classes (see below)
 js/armory.js        working with a whole weapon
 js/rules.js         game state + every action the game allows
@@ -27,7 +28,7 @@ js/ui.js            draws everything and reports clicks
 js/main.js          connects rules and UI, plus undo history
 ```
 
-Rules files (`synergy.js`, `board.js`, `units.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
+Rules files (`synergy.js`, `board.js`, `units.js`, `territory.js`, `market.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
 The UI files never change the game state directly. Every change goes through `Rules.applyAction`.
 
 ## Turn structure
@@ -57,6 +58,19 @@ plus or minus the same-named stats of the parts on its weapons. The game stores 
 health, so current health = max health − damage taken: when max health changes, current health changes by the
 same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
 can hit (red), then click the space to do it.
+
+## Territory and buildings
+
+The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, each with an **HQ**
+(`CONFIG.startingBuildings`).
+
+- **Control:** when your unit steps onto an octagon it becomes yours (tinted your colour) and stays
+  yours until an enemy unit steps on it.
+- **Deploying:** units can only be deployed onto empty octagons touching one of your buildings that is
+  `deployable` (like the HQ). Other buildings, like a future hospital, don't allow deploying.
+- **Building:** buildings go on empty squares touching one of your units. The HQ can't be built.
+- **Capturing:** a building switches to the enemy when they control 3 of the 4 octagons around it
+  (`CONFIG.captureThreshold`). Buildings are coloured by owner.
 
 ## Weapon part classes
 

@@ -137,6 +137,16 @@ const UI = {
       shape.setAttribute("points", UI.shapePoints(space));
       g.appendChild(shape);
 
+      // Owner colours: a light tint on controlled octagons, a solid square under buildings.
+      const owner = space.kind === "octagon" ? space.controller : space.building && space.building.owner;
+      if (owner !== null && owner !== undefined) {
+        const tint = document.createElementNS(SVG_NS, "polygon");
+        tint.setAttribute("points", UI.shapePoints(space));
+        tint.style.fill = state.players[owner].color; // inline, so it beats the stylesheet's space colours
+        tint.setAttribute("class", space.kind === "octagon" ? "tint" : "tint building");
+        g.appendChild(tint);
+      }
+
       const { x, y } = UI.center(space);
       if (space.unit) {
         const color = state.players[space.unit.owner].color;
@@ -145,7 +155,7 @@ const UI = {
         g.appendChild(UI.svgText(x, y + 14, hp, "health"));
       } else if (space.building) {
         const def = BUILDING_TYPES[space.building.typeId];
-        g.appendChild(UI.svgText(x, y, def.name.slice(0, 2).toUpperCase(), "occupant square", state.players[space.building.owner].color));
+        g.appendChild(UI.svgText(x, y, def.name.slice(0, 2).toUpperCase(), "occupant square"));
       }
 
       g.addEventListener("click", () =>
@@ -318,9 +328,20 @@ const UI = {
            · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>`;
     } else if (space.building) {
       const b = space.building;
-      body.innerHTML = `<p><b>${BUILDING_TYPES[b.typeId].name}</b> <span class="muted">(${state.players[b.owner].name})</span></p>`;
+      const def = BUILDING_TYPES[b.typeId];
+      const enemy = Territory.controlAround(state, space);
+      const enemyBest = Math.max(0, ...Object.entries(enemy).filter(([p]) => Number(p) !== b.owner).map(([, n]) => n));
+      body.innerHTML = `
+        <p><b>${def.name}</b> <span class="muted">(${state.players[b.owner].name})</span>
+           ${def.deployable ? `<span class="muted">· units deploy around it</span>` : ""}</p>
+        <p><span class="muted">Enemy controls</span> ${enemyBest} of 4 octagons around it
+           <span class="muted">(${CONFIG.captureThreshold} captures it)</span></p>
+        ${def.description ? `<p class="muted">${def.description}</p>` : ""}`;
     } else {
       body.innerHTML = `<p class="muted">Empty ${space.kind === "octagon" ? "octagon (units go here)" : "square (buildings go here)"}.</p>`;
+    }
+    if (space.kind === "octagon") {
+      body.innerHTML += `<p><span class="muted">Controlled by</span> ${space.controller === null ? "nobody" : state.players[space.controller].name}</p>`;
     }
     return Rules.getActionsForSpace(state, space.id);
   },
