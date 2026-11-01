@@ -2,36 +2,57 @@
 // market.js — the weapon parts offered each main phase.
 // Pure logic, no drawing.
 //
-// state.market = {
-//   bases: [partInstance | null, ...],   // CONFIG.market.bases offers
-//   parts: [partInstance | null, ...],   // CONFIG.market.parts offers (no bases)
-// }
-// A taken offer becomes null so the others keep their places.
+// Each player has their own market (player.market):
+//   {
+//     bases: [{ item: partInstance | null, locked: false }, ...],  // CONFIG.market.bases slots
+//     parts: [{ item: partInstance | null, locked: false }, ...],  // CONFIG.market.parts slots
+//   }
+// At the start of your main phase every slot rerolls, except LOCKED ones,
+// which keep their offer so you can buy it on a later turn.
+// A bought offer leaves its slot empty (and unlocked) until the next reroll.
 // Rarity is rolled the moment a part appears here.
 // =============================================================
 
 const Market = {
-  // Deals a fresh market for the current player.
-  // PLACEHOLDER RULE: each offer is any part from the catalogue with equal
-  // chance (repeats allowed), and last turn's leftovers are thrown away.
+  create() {
+    const slots = (n) => Array.from({ length: n }, () => ({ item: null, locked: false }));
+    return { bases: slots(CONFIG.market.bases), parts: slots(CONFIG.market.parts) };
+  },
+
+  // Rerolls every unlocked slot in the current player's market.
+  // PLACEHOLDER RULE: each offer is any part from the catalogue with equal chance (repeats allowed).
   refresh(state) {
+    const market = state.players[state.currentPlayer].market;
     const all = Object.values(WEAPON_PARTS);
-    state.market = {
-      bases: Market.draw(state, all.filter((p) => p instanceof WeaponBase), CONFIG.market.bases),
-      parts: Market.draw(state, all.filter((p) => !(p instanceof WeaponBase)), CONFIG.market.parts),
+    const pools = {
+      bases: all.filter((p) => p instanceof WeaponBase),
+      parts: all.filter((p) => !(p instanceof WeaponBase)),
     };
+    for (const pile of ["bases", "parts"]) {
+      for (const slot of market[pile]) {
+        if (!slot.locked) slot.item = Market.draw(state, pools[pile]);
+      }
+    }
   },
 
-  draw(state, pool, count) {
-    if (pool.length === 0) return [];
-    return Array.from({ length: count }, () => {
-      const part = pool[Math.floor(Random.next(state) * pool.length)];
-      return part.createInstance(state);
-    });
+  draw(state, pool) {
+    if (pool.length === 0) return null;
+    return pool[Math.floor(Random.next(state) * pool.length)].createInstance(state);
   },
 
-  offer(state, pile, slot) {
-    const list = state.market && state.market[pile];
+  slot(state, pile, slot) {
+    const list = state.players[state.currentPlayer].market[pile];
     return (list && list[slot]) || null;
+  },
+
+  // The part instance on offer in a slot, or null.
+  offer(state, pile, slot) {
+    const s = Market.slot(state, pile, slot);
+    return s ? s.item : null;
+  },
+
+  // Price of an offer. PLACEHOLDER RULE: rarity doesn't change the price.
+  price(instance) {
+    return WEAPON_PARTS[instance.partId].cost;
   },
 };

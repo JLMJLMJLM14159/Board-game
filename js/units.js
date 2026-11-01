@@ -11,6 +11,7 @@
 //     stepsTaken: 0,      // moves used this turn
 //     shotsTaken: 0,      // shots used this turn
 //     buildsTaken: 0,     // buildings built this turn (civilians only)
+//     weapon: { base, barrel, mag, attachments },   // its own weapon (see armory.js)
 //   }
 //
 // Stats (movement, range, health, damage, shots) are NEVER stored: they're
@@ -21,7 +22,21 @@
 
 const Units = {
   create(state, typeId, owner) {
-    return { id: state.nextUnitId++, typeId, owner, damageTaken: 0, stepsTaken: 0, shotsTaken: 0, buildsTaken: 0 };
+    return {
+      id: state.nextUnitId++,
+      typeId,
+      owner,
+      damageTaken: 0,
+      stepsTaken: 0,
+      shotsTaken: 0,
+      buildsTaken: 0,
+      weapon: Armory.createEmptyWeapon(),
+    };
+  },
+
+  // The board space a unit is standing on, or null if it isn't deployed.
+  spaceOf(state, unitId) {
+    return Object.values(state.spaces).find((s) => s.unit && s.unit.id === unitId) || null;
   },
 
   def(unit) {
@@ -33,10 +48,9 @@ const Units = {
     return Units.def(unit).category === "civilian";
   },
 
-  // The weapons this unit is using.
-  // PLACEHOLDER RULE: how a unit gets weapons isn't decided yet, so none do.
+  // The weapons this unit is using: each unit has its own one.
   weaponsOf(state, unit) {
-    return [];
+    return [unit.weapon];
   },
 
   // Total of one stat across every part on the unit's weapons

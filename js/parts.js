@@ -11,6 +11,10 @@
 //       ├── Mag                one per weapon
 //       └── Attachment         up to 2 per weapon, each a different type
 //
+// A part goes into a PLACE on a weapon: "base", "barrel", "mag", or an
+// attachment slot number (0, 1). Putting a part into a filled place
+// replaces the part that was there.
+//
 // These classes describe part TYPES (catalogue entries in data/weapons.js).
 // A part actually in play is plain data, a PART INSTANCE:
 //   { partId: "coil_barrel", rarity: "epic" }     (rarity is null for bases)
@@ -21,12 +25,13 @@
 // =============================================================
 
 class WeaponPart {
-  constructor({ id, name, synergy = null, stats = {}, description = "" }) {
+  constructor({ id, name, synergy = null, cost = null, stats = {}, description = "" }) {
     if (!id || !name) throw new Error("Every weapon part needs an id and a name.");
     if (synergy && !Synergy.get(synergy)) throw new Error(`${id}: unknown synergy "${synergy}".`);
     this.id = id;
     this.name = name;
     this.synergy = synergy;
+    this.cost = cost; // market price; null = not decided yet (free for now)
     this.stats = stats;
     this.description = description;
   }
@@ -36,9 +41,14 @@ class WeaponPart {
     throw new Error(`${this.constructor.name} must define a slot.`);
   }
 
-  // Word used on the button, e.g. "Install Coil Barrel".
-  get installVerb() {
-    return "Install";
+  // The places on a weapon this part could go.
+  places(weapon) {
+    return [this.slot];
+  }
+
+  // The part instance currently in a place, or null.
+  occupant(weapon, place) {
+    return weapon[place];
   }
 
   // A copy of this part appearing in the game.
@@ -72,13 +82,13 @@ class WeaponPart {
     return stats;
   }
 
-  canInstallOn(weapon) {
-    return weapon[this.slot] ? { ok: false, reason: `This weapon already has a ${this.slot}.` } : { ok: true };
+  canInstallOn(weapon, place) {
+    return this.places(weapon).includes(place) ? { ok: true } : { ok: false, reason: "That part doesn't go there." };
   }
 
-  // Returns a NEW weapon with the instance in place.
-  installOn(weapon, instance) {
-    return { ...weapon, [this.slot]: instance };
+  // Returns a NEW weapon with the instance in the place (replacing what was there).
+  installOn(weapon, instance, place) {
+    return { ...weapon, [place]: instance };
   }
 }
 
@@ -95,8 +105,17 @@ class WeaponBase extends WeaponPart {
     return "base";
   }
 
-  get installVerb() {
-    return "Build";
+  // A base can replace another only if every part already on the weapon fits it.
+  canInstallOn(weapon, place) {
+    const ok = super.canInstallOn(weapon, place);
+    if (!ok.ok) return ok;
+    for (const instance of [weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean)) {
+      const part = WEAPON_PARTS[instance.partId];
+      if (part.allowedClasses && !part.allowedClasses.includes(this.weaponClass)) {
+        return { ok: false, reason: `${part.nameFor(instance)} doesn't fit a ${this.weaponClass}.` };
+      }
+    }
+    return { ok: true };
   }
 }
 
@@ -144,9 +163,9 @@ class CustomPart extends WeaponPart {
     return { ok: true };
   }
 
-  canInstallOn(weapon) {
+  canInstallOn(weapon, place) {
     const fits = this.checkFitsBase(weapon);
-    return fits.ok ? super.canInstallOn(weapon) : fits;
+    return fits.ok ? super.canInstallOn(weapon, place) : fits;
   }
 }
 
@@ -175,21 +194,31 @@ class Attachment extends CustomPart {
     return "attachments";
   }
 
-  canInstallOn(weapon) {
+  // Any attachment slot, by number.
+  places(weapon) {
+    return weapon.attachments.map((_, i) => i);
+  }
+
+  occupant(weapon, place) {
+    return weapon.attachments[place];
+  }
+
+  canInstallOn(weapon, place) {
     const fits = this.checkFitsBase(weapon);
     if (!fits.ok) return fits;
-    if (!weapon.attachments.includes(null)) return { ok: false, reason: "All attachment slots are full." };
-    // The attachments must be different types (e.g. scope + side, not scope + scope).
-    const taken = weapon.attachments.filter(Boolean).map((p) => WEAPON_PARTS[p.partId].attachmentType);
-    if (taken.includes(this.attachmentType)) {
+    if (!this.places(weapon).includes(place)) return { ok: false, reason: "No such attachment slot." };
+    // The attachments must be different types (e.g. scope + side, not scope + scope),
+    // ignoring the one being replaced.
+    const others = weapon.attachments.filter((p, i) => p && i !== place);
+    if (others.some((p) => WEAPON_PARTS[p.partId].attachmentType === this.attachmentType)) {
       return { ok: false, reason: `This weapon already has a ${this.attachmentType} attachment.` };
     }
     return { ok: true };
   }
 
-  installOn(weapon, instance) {
+  installOn(weapon, instance, place) {
     const attachments = [...weapon.attachments];
-    attachments[attachments.indexOf(null)] = instance;
+    attachments[place] = instance;
     return { ...weapon, attachments };
   }
 }

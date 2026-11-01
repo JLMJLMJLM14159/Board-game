@@ -19,10 +19,10 @@ js/rarity.js        part rarity rolls
 js/synergy.js       the Thermal -> Electrical -> Biological circle
 js/board.js         board shape: spaces, which ones touch, distances
 js/units.js         unit stats, health and per-turn tracking
-js/market.js        the weapon parts offered each main phase
+js/market.js        each player's market: offers, rerolls and locks
 js/territory.js     octagon control, building capture, where you can deploy and build
 js/parts.js         weapon part classes (see below)
-js/armory.js        working with a whole weapon
+js/armory.js        working with a whole weapon (each unit has one)
 js/rules.js         game state + every action the game allows
 js/ui.js            draws everything and reports clicks
 js/main.js          connects rules and UI, plus undo history
@@ -41,20 +41,23 @@ and then skip straight on. A unit or building gets a trigger by adding
 At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
 
 During **Main**:
-- the **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
-  the moment a part appears there. Click an offer, then put it on one of your weapons;
+- your **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
+  the moment a part appears there. Select one of your units, click an offer, and buy it onto that
+  unit's weapon; putting a part where one already is **replaces** it. Parts cost money (`cost`).
+  Unbought offers reroll at your next main phase unless you **lock** them, which keeps them for a later turn;
 - you can **buy units** (civilian or military) into your reserve, and **deploy** reserve units onto
   empty octagons next to your deployable buildings; civilians can **build**. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
   Starting units go in `CONFIG.startingUnits`.
 
-During **Unit control** each of your units can:
+During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
 - **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals),
   never onto or through other units;
 - **shoot** enemy units within its `range` (counted without diagonals, so a diagonal neighbour is 2 away),
   up to `shots` times per turn, each dealing its `damage`. Only octagons can be targeted.
 
-A unit's stats (`health`, `movement`, `range`, `damage`, `shots`) come from its type in `js/data/units.js`,
-plus or minus the same-named stats of the parts on its weapons. The game stores damage taken, not current
+Every unit carries **its own weapon** (base, barrel, mag, 2 attachments), shown in the weapon menu when
+you select the unit. A unit's stats (`health`, `movement`, `range`, `damage`, `shots`) come from its type in
+`js/data/units.js`, plus or minus the same-named stats of the parts on its weapon. The game stores damage taken, not current
 health, so current health = max health − damage taken: when max health changes, current health changes by the
 same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
 can hit (red), then click the space to do it.
@@ -86,7 +89,8 @@ WeaponPart                 any part: id, name, synergy, stats
     └── Attachment         2 per weapon, each a different type
 ```
 
-Each class holds its own rules (`canInstallOn`, `installOn`, `createInstance`, `statsFor`).
+Each class holds its own rules (`places`, `canInstallOn`, `installOn`, `createInstance`, `statsFor`).
+A part goes into a place (`base`, `barrel`, `mag`, or attachment slot `0`/`1`); a filled place is replaced.
 A new kind of part is a new subclass. Parts in play are stored as plain `{ partId, rarity }`
 data so the game state can be copied for undo.
 

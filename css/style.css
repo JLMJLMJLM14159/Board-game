@@ -148,9 +148,15 @@ aside {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
   }
-  aside { grid-template-rows: auto auto auto; }
-  #panel { height: 150px; }
-  #player-boards { grid-template-columns: 1fr 1fr; }
+  /* Panel and weapon menu side by side, market underneath. */
+  aside {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    grid-template-areas: "panel weapon" "market market";
+  }
+  #panel { grid-area: panel; height: 170px; }
+  #weapon { grid-area: weapon; height: 170px; overflow: hidden; }
+  #market { grid-area: market; }
 }
 
 /* ---------- Board spaces ---------- */
@@ -209,6 +215,9 @@ b.scaled { font-weight: 800; }
 }
 .chip b { font-weight: 600; }
 .chip.selected { border-color: var(--accent); }
+.chip.locked { border-color: #ffd54f; box-shadow: inset 0 0 0 1px #ffd54f55; }
+.chip.locked::before { content: "🔒 "; }
+.lock-note { color: #ffd54f; }
 .chip.taken {
   border: 1px dashed var(--line);
   border-radius: 6px;
@@ -216,48 +225,34 @@ b.scaled { font-weight: 800; }
   font-style: italic;
 }
 
-/* ---------- Player boards ---------- */
-#player-boards {
-  display: grid;
-  gap: var(--gap);
-}
-.player-board {
-  background: var(--surface);
+/* ---------- Player status (header) ---------- */
+#players { display: flex; gap: 6px; flex-wrap: wrap; }
+.player-chip {
+  font-size: 12px;
+  padding: 3px 8px;
   border: 1px solid var(--line);
-  border-top: 3px solid var(--player);
-  border-radius: 10px;
-  padding: 8px;
-  opacity: 0.75;
-}
-.player-board.active { opacity: 1; box-shadow: 0 0 0 1px var(--player); }
-.player-board h3 {
-  display: flex;
-  justify-content: space-between;
+  border-left: 3px solid var(--player);
+  border-radius: 6px;
   color: var(--player);
-  font-size: 13px;
-  margin-bottom: 6px;
+  opacity: 0.7;
 }
+.player-chip.active { opacity: 1; border-color: var(--player); }
 .money { font-family: var(--mono); color: #ffd54f; }
 
-.weapons {
+/* ---------- Weapon menu ---------- */
+#weapon { padding: 8px 10px; }
+#weapon h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weapon-rows { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.weapon-rows li {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 56px minmax(0, 1fr);
   gap: 6px;
+  padding: 2px 0;
+  border-bottom: 1px dashed var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.weapon {
-  min-width: 0;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px;
-  cursor: pointer;
-}
-.weapon:hover { border-color: var(--muted); }
-.weapon.selected { border-color: var(--accent); }
-.weapon h4 { font-size: 12px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.weapon h4 small { color: var(--muted); font-weight: 400; text-transform: uppercase; }
-.weapon ul { list-style: none; margin: 0; padding: 0; font-size: 11px; }
-.weapon li { display: flex; justify-content: space-between; gap: 4px; padding: 1px 0; border-bottom: 1px dashed var(--line); }
-.weapon li span { color: var(--muted); white-space: nowrap; }
-.weapon li b { font-weight: 500; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.weapon li b.empty { color: #4a5a6a; font-style: italic; font-weight: 400; }
+.weapon-rows li > :last-child { overflow: hidden; text-overflow: ellipsis; }
+.weapon-rows b { font-weight: 600; }
+b.empty { color: #4a5a6a; font-style: italic; font-weight: 400; }

@@ -43,7 +43,8 @@ const CONFIG = {
   income: { base: 1, perReserveUnit: 1 },
 
   // ---- Market ----
-  // Offered to the current player at the start of each main phase.
+  // Slots in each player's market. Unlocked slots reroll at the start of
+  // your main phase; locked ones keep their offer for a later turn.
   market: { parts: 5, bases: 2 },
 
   // ---- Units ----
@@ -63,8 +64,7 @@ const CONFIG = {
   },
 
   // ---- Weapons ----
-  // PLACEHOLDER: how many weapons fit on each player's board.
-  weaponsPerPlayer: 3,
+  // Every unit carries one weapon of its own.
 
   // Weapon base classes. Every base in data/weapons.js must use one of these.
   weaponClasses: ["pistol", "smg", "ar", "sniper", "shotgun", "lmg"],

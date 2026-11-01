@@ -16,6 +16,7 @@ const WEAPON_PARTS = partCatalogue([
   //   id: "plasma_pistol",
   //   name: "Plasma Pistol",
   //   weaponClass: "pistol",        // one of CONFIG.weaponClasses
+  //   cost: null,                   // market price; null = not decided yet (free for now)
   //   synergy: "thermal",           // optional: thermal / electrical / biological
   //   stats: {},                    // anything you like, e.g. { damage: 2, range: 3 }
   //   description: "",
@@ -27,6 +28,7 @@ const WEAPON_PARTS = partCatalogue([
   //   name: "Coil Barrel",
   //   synergy: "electrical",        // optional
   //   allowedClasses: null,         // optional: e.g. ["ar", "sniper"]; null = fits any base
+  //   cost: null,                   // market price
   //   stats: { damage: 2, range: 1, movement: -1 },
   //   rarityStats: ["damage"],      // only damage is multiplied by rarity
   //   description: "",
@@ -47,6 +49,7 @@ const WEAPON_PARTS = partCatalogue([
   //   attachmentType: "scope",      // one of CONFIG.attachmentTypes
   //   synergy: "thermal",           // optional
   //   allowedClasses: null,         // optional
+  //   cost: null,                   // market price
   //   stats: {},
   //   rarityStats: [],              // optional
   //   legendary: null,              // optional

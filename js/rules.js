@@ -115,8 +115,6 @@ const ACTIONS = {
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
       if (!to || !Board.octagonNeighbors(state.spaces, from).includes(to.id)) return no("Units move one side-sharing octagon at a time.");
       if (to.unit) return no("Units can't move onto or through other units.");
-      // PLACEHOLDER RULE: a unit can't move after it has started shooting.
-      if (from.unit.shotsTaken > 0) return no("This unit has already shot.");
       if (Units.movesLeft(state, from.unit) <= 0) return no("No movement left.");
       return OK;
     },
@@ -165,36 +163,76 @@ const ACTIONS = {
     },
   },
 
-  // ---- Weapons: take a part from the market onto one of your weapons ----
+  // ---- Market: buy a part onto one of your units' weapons ----
 
+  // Puts a market offer into a place on a deployed unit's weapon, replacing
+  // whatever part was there.
   INSTALL_PART: {
     label(a, state) {
       const instance = Market.offer(state, a.pile, a.slot);
       const part = WEAPON_PARTS[instance.partId];
-      return `${part.installVerb} ${part.nameFor(instance)} on Weapon ${a.weaponIndex + 1}`;
+      const weapon = state.spaces[a.from].unit.weapon;
+      const replaced = part.occupant(weapon, a.place);
+      const where = typeof a.place === "number" ? ` in attachment ${a.place + 1}` : "";
+      return `Buy for ${price(Market.price(instance))}${where}` +
+        (replaced ? ` (replaces ${WEAPON_PARTS[replaced.partId].nameFor(replaced)})` : "");
     },
     list(state) {
+      const player = state.players[state.currentPlayer];
       const out = [];
-      state.players[state.currentPlayer].weapons.forEach((_, weaponIndex) => {
+      for (const from of Object.values(state.spaces)) {
+        if (!from.unit || from.unit.owner !== state.currentPlayer) continue;
         for (const pile of ["bases", "parts"]) {
-          (state.market ? state.market[pile] : []).forEach((_, slot) => out.push({ type: "INSTALL_PART", weaponIndex, pile, slot }));
+          player.market[pile].forEach(({ item }, slot) => {
+            if (!item) return;
+            for (const place of WEAPON_PARTS[item.partId].places(from.unit.weapon)) {
+              out.push({ type: "INSTALL_PART", from: from.id, pile, slot, place });
+            }
+          });
         }
-      });
+      }
       return out;
     },
-    // PLACEHOLDER RULE: market parts are free and you can take as many as you like.
+    // PLACEHOLDER RULE: deployed units only, during the main phase.
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
       const instance = Market.offer(state, a.pile, a.slot);
-      if (!instance) return no("That offer has been taken.");
-      const weapon = state.players[state.currentPlayer].weapons[a.weaponIndex];
-      return weapon ? Armory.canInstall(weapon, instance.partId) : no("No such weapon slot.");
+      if (!instance) return no("That offer has been bought.");
+      const from = state.spaces[a.from];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (state.players[state.currentPlayer].money < (Market.price(instance) ?? 0)) return no("Not enough money.");
+      return Armory.canInstall(from.unit.weapon, instance.partId, a.place);
     },
     apply(state, a) {
-      const weapons = state.players[state.currentPlayer].weapons;
-      weapons[a.weaponIndex] = Armory.install(weapons[a.weaponIndex], Market.offer(state, a.pile, a.slot));
-      state.market[a.pile][a.slot] = null;
+      const slot = Market.slot(state, a.pile, a.slot);
+      const unit = state.spaces[a.from].unit;
+      state.players[state.currentPlayer].money -= Market.price(slot.item) ?? 0;
+      unit.weapon = Armory.install(unit.weapon, slot.item, a.place);
+      slot.item = null;
+      slot.locked = false;
+    },
+  },
+
+  // Locks (or unlocks) a market slot so it doesn't reroll next turn.
+  // PLACEHOLDER RULE: locking is free.
+  LOCK_OFFER: {
+    label: (a, state) => (Market.slot(state, a.pile, a.slot).locked ? "Unlock (reroll next turn)" : "Lock (keep for a later turn)"),
+    list(state) {
+      const out = [];
+      for (const pile of ["bases", "parts"]) {
+        state.players[state.currentPlayer].market[pile].forEach((_, slot) => out.push({ type: "LOCK_OFFER", pile, slot }));
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      return Market.offer(state, a.pile, a.slot) ? OK : no("Nothing to lock.");
+    },
+    apply(state, a) {
+      const slot = Market.slot(state, a.pile, a.slot);
+      slot.locked = !slot.locked;
     },
   },
 
@@ -254,14 +292,13 @@ const Rules = {
       winner: null,
       rngState: Random.newSeed(),
       nextUnitId: 1,
-      market: null,
     };
     state.players = CONFIG.players.map((p, i) => ({
       name: p.name,
       color: p.color,
       money: CONFIG.startingMoney,
       reserve: CONFIG.startingUnits.map((typeId) => Units.create(state, typeId, i)),
-      weapons: Array.from({ length: CONFIG.weaponsPerPlayer }, Armory.createEmptyWeapon),
+      market: Market.create(),
     }));
     Territory.placeStartingBuildings(state);
     Rules.enterPhase(state);
@@ -358,17 +395,16 @@ const Rules = {
 
   // Legal actions that happen on a board space, or are done by the piece on it.
   getActionsForSpace(state, spaceId) {
-    return Rules.getLegalActions(state).filter((a) => a.spaceId === spaceId || a.from === spaceId);
+    return Rules.getLegalActions(state).filter(
+      (a) => (a.spaceId === spaceId || a.from === spaceId) && a.type !== "INSTALL_PART"
+    );
   },
 
-  // Legal actions that put a part on one of the current player's weapons.
-  getActionsForWeapon(state, weaponIndex) {
-    return Rules.getLegalActions(state).filter((a) => a.weaponIndex === weaponIndex);
-  },
-
-  // Legal actions that take one market offer.
-  getActionsForOffer(state, pile, slot) {
-    return Rules.getLegalActions(state).filter((a) => a.pile === pile && a.slot === slot);
+  // Legal actions on one market offer: locking it, and buying it onto the unit on `fromId`.
+  getActionsForOffer(state, pile, slot, fromId) {
+    return Rules.getLegalActions(state).filter(
+      (a) => a.pile === pile && a.slot === slot && (a.type === "LOCK_OFFER" || a.from === fromId)
+    );
   },
 
   getActionsOfType(state, type) {

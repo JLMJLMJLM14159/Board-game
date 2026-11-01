@@ -1,7 +1,7 @@
 // =============================================================
 // armory.js — working with a whole WEAPON. Pure logic, no drawing.
 // The rules for each kind of part live in their classes (parts.js);
-// this file just asks the right part.
+// this file just asks the right part. Every unit carries one weapon.
 //
 // A weapon looks like (every filled slot is a part instance):
 //   {
@@ -36,13 +36,13 @@ const Armory = {
     return [weapon.base, weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean);
   },
 
-  canInstall(weapon, partId) {
+  canInstall(weapon, partId, place) {
     const part = WEAPON_PARTS[partId];
-    return part ? part.canInstallOn(weapon) : { ok: false, reason: "Unknown part." };
+    return part ? part.canInstallOn(weapon, place) : { ok: false, reason: "Unknown part." };
   },
 
-  // Returns a NEW weapon with this part instance (e.g. from the market) installed.
-  install(weapon, instance) {
-    return WEAPON_PARTS[instance.partId].installOn(weapon, instance);
+  // Returns a NEW weapon with this part instance in the place, replacing what was there.
+  install(weapon, instance, place) {
+    return WEAPON_PARTS[instance.partId].installOn(weapon, instance, place);
   },
 };
