@@ -10,6 +10,7 @@
 //     damageTaken: 0,     // current health = max health - damageTaken
 //     stepsTaken: 0,      // moves used this turn
 //     shotsTaken: 0,      // shots used this turn
+//     buildsTaken: 0,     // buildings built this turn (civilians only)
 //   }
 //
 // Stats (movement, range, health, damage, shots) are NEVER stored: they're
@@ -20,11 +21,16 @@
 
 const Units = {
   create(state, typeId, owner) {
-    return { id: state.nextUnitId++, typeId, owner, damageTaken: 0, stepsTaken: 0, shotsTaken: 0 };
+    return { id: state.nextUnitId++, typeId, owner, damageTaken: 0, stepsTaken: 0, shotsTaken: 0, buildsTaken: 0 };
   },
 
   def(unit) {
     return UNIT_TYPES[unit.typeId];
+  },
+
+  // Civilian units can build; military units can't.
+  isCivilian(unit) {
+    return Units.def(unit).category === "civilian";
   },
 
   // The weapons this unit is using.
@@ -94,6 +100,7 @@ const Units = {
       if (space.unit && space.unit.owner === player) {
         space.unit.stepsTaken = 0;
         space.unit.shotsTaken = 0;
+        space.unit.buildsTaken = 0;
       }
     }
   },

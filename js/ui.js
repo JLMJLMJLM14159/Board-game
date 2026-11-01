@@ -57,6 +57,13 @@ const UI = {
     nextBtn.textContent = Rules.describe(next, state);
     nextBtn.disabled = !Rules.check(state, next).ok;
     document.getElementById("undo").disabled = !canUndo;
+
+    const banner = document.getElementById("game-over");
+    banner.hidden = state.winner === null;
+    if (state.winner !== null) {
+      const winner = state.players[state.winner];
+      banner.innerHTML = `<div style="--player:${winner.color}"><h2>${winner.name} wins!</h2><p>The enemy HQ has been captured.</p></div>`;
+    }
   },
 
   // ---------- Main board ----------

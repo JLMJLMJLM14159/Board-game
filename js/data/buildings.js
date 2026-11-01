@@ -9,7 +9,8 @@
 //     id: "field_hospital",
 //     name: "Field Hospital",
 //     deployable: false,       // can units be deployed onto the octagons around it?
-//     buildable: true,         // can players build it? (false for the HQ)
+//     buildable: true,         // can civilian units build it? (false for the HQ)
+//     capturingWins: false,    // does capturing it win the game? (true for the HQ)
 //     cost: null,              // null = price not decided yet (free for now)
 //     synergy: "biological",   // optional
 //     stats: {},
@@ -28,8 +29,9 @@ const BUILDING_TYPES = {
     name: "HQ",
     deployable: true,
     buildable: false,
+    capturingWins: true,
     cost: null,
     stats: {},
-    description: "Your headquarters. Units can be deployed around it.",
+    description: "Your headquarters. Units deploy around it. Lose it and you lose the game.",
   },
 };

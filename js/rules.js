@@ -200,16 +200,23 @@ const ACTIONS = {
 
   // ---- Buildings ----
 
+  // A civilian unit builds on an empty square touching it.
   PLACE_BUILDING: {
-    label: (a) => `Build ${BUILDING_TYPES[a.buildingTypeId].name} (${price(BUILDING_TYPES[a.buildingTypeId].cost ?? null)})`,
+    label(a, state) {
+      const def = BUILDING_TYPES[a.buildingTypeId];
+      const builder = state.spaces[a.from];
+      return `Build ${def.name} (${price(def.cost ?? null)}) · ${Units.def(builder.unit).name} ${builder.row + 1}-${builder.col + 1}`;
+    },
     list(state) {
       const out = [];
-      for (const spaceId in state.spaces) {
-        for (const buildingTypeId in BUILDING_TYPES) out.push({ type: "PLACE_BUILDING", spaceId, buildingTypeId });
+      for (const from of Object.values(state.spaces)) {
+        if (!from.unit || from.unit.owner !== state.currentPlayer || !Units.isCivilian(from.unit)) continue;
+        for (const spaceId of Board.squareNeighbors(state.spaces, from)) {
+          for (const buildingTypeId in BUILDING_TYPES) out.push({ type: "PLACE_BUILDING", from: from.id, spaceId, buildingTypeId });
+        }
       }
       return out;
     },
-    // On an empty square touching one of your units.
     // PLACEHOLDER RULE: main phase only.
     check(state, a) {
       const phase = inPhase(state, "main");
@@ -217,16 +224,21 @@ const ACTIONS = {
       const def = BUILDING_TYPES[a.buildingTypeId];
       if (!def) return no("Unknown building.");
       if (!def.buildable) return no(`${def.name} can't be built.`);
+      const from = state.spaces[a.from];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!Units.isCivilian(from.unit)) return no("Only civilian units can build.");
+      if (from.unit.buildsTaken >= CONFIG.buildsPerCivilianPerTurn) return no("This unit has already built this turn.");
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "square") return no("Buildings go on squares.");
+      if (!Board.squareNeighbors(state.spaces, from).includes(space.id)) return no("Must touch the builder.");
       if (space.building) return no("That square is occupied.");
-      if (!Territory.canBuildAt(state, state.currentPlayer, space)) return no("Must touch one of your units.");
       if (state.players[state.currentPlayer].money < (def.cost ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
       state.players[state.currentPlayer].money -= BUILDING_TYPES[a.buildingTypeId].cost ?? 0;
-      state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer };
+      state.spaces[a.from].unit.buildsTaken++;
+      state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer };
     },
   },
 };
@@ -377,8 +389,13 @@ const Rules = {
     return next;
   },
 
-  // PLACEHOLDER RULE: nobody can win yet. Return a player index once decided.
+  // Capturing an enemy HQ (any building with `capturingWins`) ends the game,
+  // and whoever captured it wins.
   checkWinner(state) {
+    for (const space of Object.values(state.spaces)) {
+      const b = space.building;
+      if (b && BUILDING_TYPES[b.typeId].capturingWins && b.owner !== b.builtBy) return b.owner;
+    }
     return null;
   },
 };

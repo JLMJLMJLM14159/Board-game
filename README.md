@@ -44,7 +44,7 @@ During **Main**:
 - the **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
   the moment a part appears there. Click an offer, then put it on one of your weapons;
 - you can **buy units** (civilian or military) into your reserve, and **deploy** reserve units onto
-  empty octagons. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
+  empty octagons next to your deployable buildings; civilians can **build**. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
   Starting units go in `CONFIG.startingUnits`.
 
 During **Unit control** each of your units can:
@@ -62,13 +62,16 @@ can hit (red), then click the space to do it.
 ## Territory and buildings
 
 The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, each with an **HQ**
-(`CONFIG.startingBuildings`).
+(`CONFIG.startingBuildings`), and controls the 4 octagons around it.
+**Capturing the enemy HQ ends the game and wins it.**
 
 - **Control:** when your unit steps onto an octagon it becomes yours (tinted your colour) and stays
   yours until an enemy unit steps on it.
 - **Deploying:** units can only be deployed onto empty octagons touching one of your buildings that is
   `deployable` (like the HQ). Other buildings, like a future hospital, don't allow deploying.
-- **Building:** buildings go on empty squares touching one of your units. The HQ can't be built.
+- **Building:** only **civilian** units can build, on an empty square touching them, and each civilian
+  can build one building per turn (`CONFIG.buildsPerCivilianPerTurn`). Buildings cost money (`cost`).
+  The HQ can't be built.
 - **Capturing:** a building switches to the enemy when they control 3 of the 4 octagons around it
   (`CONFIG.captureThreshold`). Buildings are coloured by owner.
 

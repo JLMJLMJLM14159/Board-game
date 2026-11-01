@@ -102,6 +102,25 @@ main {
 }
 #board { width: 100%; height: 100%; display: block; }
 
+.board-wrap { position: relative; }
+#game-over {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+#game-over[hidden] { display: none; }
+#game-over > div {
+  background: rgba(11, 15, 20, 0.9);
+  border: 2px solid var(--player);
+  border-radius: 12px;
+  padding: 18px 28px;
+  text-align: center;
+}
+#game-over h2 { color: var(--player); font-family: var(--mono); font-size: 24px; letter-spacing: 0.05em; }
+#game-over p { margin: 6px 0 0; color: var(--muted); }
+
 aside {
   min-height: 0;
   display: grid;

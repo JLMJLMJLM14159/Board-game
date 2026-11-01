@@ -7,7 +7,8 @@
 //   when another player controls CONFIG.captureThreshold of the 4 octagons
 //   around it.
 // - Units deploy onto empty octagons touching one of your DEPLOYABLE buildings.
-// - Buildings are built on empty squares touching one of your units.
+// - Civilian units build on empty squares touching them (see PLACE_BUILDING in rules.js).
+// - Capturing a building with `capturingWins` (the HQ) wins the game.
 // =============================================================
 
 const Territory = {
@@ -49,22 +50,14 @@ const Territory = {
     });
   },
 
-  // Can `player` build on this square?
-  canBuildAt(state, player, square) {
-    return Board.neighbors(state.spaces, square).some((id) => {
-      const u = state.spaces[id].unit;
-      return u && u.owner === player;
-    });
-  },
-
   // Puts each player's starting buildings (CONFIG.startingBuildings) on the board.
-  // PLACEHOLDER RULE: each starting building also gives its owner the 4 octagons around it.
+  // Each starting building also gives its owner the 4 octagons around it.
   placeStartingBuildings(state) {
     CONFIG.startingBuildings.forEach((buildings, player) => {
       for (const { typeId, row, col } of buildings) {
         const square = state.spaces[Board.squareId(row, col)];
         if (!square) throw new Error(`Starting ${typeId} for player ${player + 1} is off the board (square ${row}, ${col}).`);
-        square.building = { typeId, owner: player };
+        square.building = { typeId, owner: player, builtBy: player };
         for (const id of Board.neighbors(state.spaces, square)) Territory.claim(state.spaces[id], player);
       }
     });

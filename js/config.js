@@ -31,6 +31,9 @@ const CONFIG = {
   // How many of the 4 octagons around a building an enemy must control to capture it.
   captureThreshold: 3,
 
+  // How many buildings each civilian unit can build per turn.
+  buildsPerCivilianPerTurn: 1,
+
   // ---- Money ----
   // PLACEHOLDER: starting money for each player.
   startingMoney: 0,
@@ -52,8 +55,8 @@ const CONFIG = {
   // PLACEHOLDER: decide once units exist.
   startingUnits: [],
 
-  // Recruit price for each category. A unit can override it with its own `cost`.
-  // null = not decided yet; recruiting is free until you set a number.
+  // Price to buy a unit, by category. A unit can override it with its own `cost`.
+  // null = not decided yet; buying is free until you set a number.
   unitCosts: {
     civilian: null,
     military: null,
