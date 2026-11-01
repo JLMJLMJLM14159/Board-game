@@ -41,14 +41,17 @@ and then skip straight on. A unit or building gets a trigger by adding
 At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
 
 During **Main**:
-- your **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
-  the moment a part appears there. Click one of your units (on the board, or in your reserve via the
-  Army button), click an offer, and buy it onto that unit's weapon, or buy it into your **storage**.
+- the **Shop** holds everything you can buy: your market of 5 random weapon parts and 2 random bases
+  (`CONFIG.market`), and units. Rarity is rolled the moment a part appears in the market. Click one of
+  your units (on the board, or in your reserve via the **Reserve & storage** button), click an offer, and
+  buy it onto that unit's weapon, or buy it into your **storage**. The ✕ next to a fitted part in the
+  weapon menu unequips it to storage (a base only comes off once it's the only part).
   Putting a part where one already is **replaces** it, and the old part goes to storage. Stored parts
   can be fitted onto any of your units later. A part's price is its `cost` plus $1 per rarity step
   (Common +0 … Legendary +4). Unbought offers reroll at your next main phase unless you **lock** them;
-- you can **buy units** (civilian or military) into your reserve, and **deploy** reserve units onto
-  empty octagons next to your deployable buildings; civilians can **build**. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
+- **bought units** (civilian or military) go to your reserve; **deploy** reserve units onto
+  empty octagons next to your deployable buildings; civilians can **build**. Storage can only be used
+  during Main. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
   Starting units go in `CONFIG.startingUnits`.
 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):

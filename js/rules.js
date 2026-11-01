@@ -267,6 +267,46 @@ const ACTIONS = {
     },
   },
 
+  // Takes a part off a unit's weapon and puts it in storage.
+  // A base can only come off once nothing else is on the weapon.
+  UNEQUIP_PART: {
+    label: () => "Unequip to storage",
+    list(state) {
+      const out = [];
+      for (const unit of Units.allOf(state, state.currentPlayer)) {
+        for (const place of ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)]) {
+          out.push({ type: "UNEQUIP_PART", unitId: unit.id, place });
+        }
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      const found = Units.find(state, a.unitId);
+      if (!found || found.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      const weapon = found.unit.weapon;
+      const instance = typeof a.place === "number" ? weapon.attachments[a.place] : weapon[a.place];
+      if (!instance) return no("Nothing there.");
+      if (a.place === "base" && Armory.installed(weapon).length > 1) return no("Take the other parts off first.");
+      return OK;
+    },
+    apply(state, a) {
+      const unit = Units.find(state, a.unitId).unit;
+      const weapon = { ...unit.weapon, attachments: [...unit.weapon.attachments] };
+      let instance;
+      if (typeof a.place === "number") {
+        instance = weapon.attachments[a.place];
+        weapon.attachments[a.place] = null;
+      } else {
+        instance = weapon[a.place];
+        weapon[a.place] = null;
+      }
+      unit.weapon = weapon;
+      state.players[state.currentPlayer].storage.push(instance);
+    },
+  },
+
   // Locks (or unlocks) a market slot so it doesn't reroll next turn.
   // PLACEHOLDER RULE: locking is free.
   LOCK_OFFER: {
