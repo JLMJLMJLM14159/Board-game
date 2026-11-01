@@ -20,6 +20,12 @@ UI.init({
     refresh();
   },
 
+  // Shows a unit's weapon in the weapon menu without changing the selection.
+  onFocus(unitId) {
+    focusUnitId = unitId;
+    refresh();
+  },
+
   onAction(action) {
     try {
       const previousPlayer = state.currentPlayer;
@@ -31,6 +37,8 @@ UI.init({
       }
       // Keep a moving unit selected so it can keep moving.
       if (action.type === "MOVE_UNIT") selection = { kind: "space", id: action.to };
+      // A fitted stored part shifts the storage list, so go back to the army view.
+      if (action.type === "EQUIP_PART") selection = { kind: "army" };
       // Show the unit that was just deployed, and its weapon.
       if (action.type === "DEPLOY_UNIT") {
         selection = { kind: "space", id: action.spaceId };

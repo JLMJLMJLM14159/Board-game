@@ -42,9 +42,11 @@ At the **Beginning** of your turn you gain $1 plus $1 for every unit in your res
 
 During **Main**:
 - your **market** offers 5 random weapon parts and 2 random bases (`CONFIG.market`). Rarity is rolled
-  the moment a part appears there. Select one of your units, click an offer, and buy it onto that
-  unit's weapon; putting a part where one already is **replaces** it. Parts cost money (`cost`).
-  Unbought offers reroll at your next main phase unless you **lock** them, which keeps them for a later turn;
+  the moment a part appears there. Click one of your units (on the board, or in your reserve via the
+  Army button), click an offer, and buy it onto that unit's weapon, or buy it into your **storage**.
+  Putting a part where one already is **replaces** it, and the old part goes to storage. Stored parts
+  can be fitted onto any of your units later. A part's price is its `cost` plus $1 per rarity step
+  (Common +0 … Legendary +4). Unbought offers reroll at your next main phase unless you **lock** them;
 - you can **buy units** (civilian or military) into your reserve, and **deploy** reserve units onto
   empty octagons next to your deployable buildings; civilians can **build**. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
   Starting units go in `CONFIG.startingUnits`.
@@ -68,8 +70,8 @@ The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, e
 (`CONFIG.startingBuildings`), and controls the 4 octagons around it.
 **Capturing the enemy HQ ends the game and wins it.**
 
-- **Control:** when your unit steps onto an octagon it becomes yours (tinted your colour) and stays
-  yours until an enemy unit steps on it.
+- **Control:** when your **military** unit steps onto an octagon it becomes yours (tinted your colour) and
+  stays yours until an enemy military unit steps on it. Civilian units never take control.
 - **Deploying:** units can only be deployed onto empty octagons touching one of your buildings that is
   `deployable` (like the HQ). Other buildings, like a future hospital, don't allow deploying.
 - **Building:** only **civilian** units can build, on an empty square touching them, and each civilian

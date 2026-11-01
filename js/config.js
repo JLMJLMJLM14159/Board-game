@@ -82,13 +82,14 @@ const CONFIG = {
   // appears in the game. Rarity isn't printed on the part itself.
   // `multiplier` scales the part's power (1, 2, 3, 5, 8: Fibonacci).
   // `weight` is how likely each rarity is to be rolled, relative to the others.
+  // `extraCost` is added to a part's market price: $1 more per step up.
   // PLACEHOLDER: the weights (odds) aren't decided yet.
   rarities: [
-    { id: "common",    name: "Common",    color: "#c4c9cf", multiplier: 1, weight: 50 },
-    { id: "uncommon",  name: "Uncommon",  color: "#4caf50", multiplier: 2, weight: 25 },
-    { id: "rare",      name: "Rare",      color: "#2f8cff", multiplier: 3, weight: 15 },
-    { id: "epic",      name: "Epic",      color: "#a64dff", multiplier: 5, weight: 7 },
-    { id: "legendary", name: "Legendary", color: "#ffc107", multiplier: 8, weight: 3 },
+    { id: "common",    name: "Common",    color: "#c4c9cf", multiplier: 1, weight: 50, extraCost: 0 },
+    { id: "uncommon",  name: "Uncommon",  color: "#4caf50", multiplier: 2, weight: 25, extraCost: 1 },
+    { id: "rare",      name: "Rare",      color: "#2f8cff", multiplier: 3, weight: 15, extraCost: 2 },
+    { id: "epic",      name: "Epic",      color: "#a64dff", multiplier: 5, weight: 7,  extraCost: 3 },
+    { id: "legendary", name: "Legendary", color: "#ffc107", multiplier: 8, weight: 3,  extraCost: 4 },
   ],
 
   // ---- Synergy circle ----

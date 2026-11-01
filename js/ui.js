@@ -6,10 +6,11 @@
 // "Selection" is what the player is looking at in the side panel:
 //   { kind: "space",  id: "O-2-3" }
 //   { kind: "offer",  pile: "parts", slot: 2 }   // a market offer
-//   { kind: "shop" }                              // buying units + reserve
+//   { kind: "stored", index: 0 }                  // a part in your storage
+//   { kind: "army" }                              // reserve units, storage, buying units
 //
-// "focusUnitId" is the unit whose weapon is shown in the weapon menu: the
-// last unit selected on the board. Market parts are bought onto its weapon.
+// "focusUnitId" is the unit whose weapon is shown in the weapon menu: the last
+// unit clicked, on the board or in the reserve. Parts are fitted onto its weapon.
 // =============================================================
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -32,7 +33,7 @@ const UI = {
   },
 
   render(state, selection, canUndo, focusUnitId) {
-    const focus = focusUnitId ? Units.spaceOf(state, focusUnitId) : null;
+    const focus = focusUnitId ? Units.find(state, focusUnitId) : null;
     UI.renderTopBar(state, canUndo);
     UI.renderBoard(state, selection);
     UI.renderMarket(state, selection);
@@ -234,19 +235,20 @@ const UI = {
         : `<span class="muted">${Object.keys(WEAPON_PARTS).length ? "empty" : "none in the catalogue yet"}</span>`;
       return `<div class="market-row"><span class="muted">${label}</span><div class="chips">${chips}</div></div>`;
     };
-    const reserve = state.players[state.currentPlayer].reserve.length;
-    const shopSelected = selection && selection.kind === "shop";
+    const player = state.players[state.currentPlayer];
+    const armySelected = selection && (selection.kind === "army" || selection.kind === "stored");
     root.innerHTML = `
       ${pile("bases", "Bases")}
       ${pile("parts", "Parts")}
-      <div class="market-row"><span class="muted">Units</span>
-        <div class="chips"><button class="chip ${shopSelected ? "selected" : ""}" id="shop">Buy units · ${reserve} in reserve</button></div>
+      <div class="market-row"><span class="muted">Army</span>
+        <div class="chips"><button class="chip ${armySelected ? "selected" : ""}" id="army">
+          Reserve ${player.reserve.length} · Storage ${player.storage.length} · Buy units</button></div>
       </div>`;
 
     root.querySelectorAll("[data-pile]").forEach((el) => {
       el.onclick = () => UI.handlers.onSelect({ kind: "offer", pile: el.dataset.pile, slot: Number(el.dataset.slot) });
     });
-    document.getElementById("shop").onclick = () => UI.handlers.onSelect({ kind: "shop" });
+    document.getElementById("army").onclick = () => UI.handlers.onSelect({ kind: "army" });
   },
 
   // ---------- Weapon menu: the focused unit's weapon ----------
@@ -269,6 +271,7 @@ const UI = {
     }
     const unit = focus.unit;
     const owner = state.players[unit.owner];
+    const where = focus.space ? `${focus.space.row + 1}-${focus.space.col + 1}` : "(reserve)";
     const base = Armory.base(unit.weapon);
     const rows = UI.weaponRows(unit.weapon)
       .map(([label, instance]) => `
@@ -277,7 +280,7 @@ const UI = {
         </li>`)
       .join("");
     root.innerHTML = `
-      <h2 style="color:${owner.color}">${Units.def(unit).name} ${focus.row + 1}-${focus.col + 1} · ${base ? `${base.name} <small class="muted">${base.weaponClass}</small>` : "Weapon"}</h2>
+      <h2 style="color:${owner.color}">${Units.def(unit).name} ${where} · ${base ? `${base.name} <small class="muted">${base.weaponClass}</small>` : "Weapon"}</h2>
       <ul class="weapon-rows">${rows}</ul>`;
   },
 
@@ -296,8 +299,10 @@ const UI = {
       actions = UI.spacePanel(state, state.spaces[selection.id], title, body);
     } else if (selection.kind === "offer") {
       actions = UI.offerPanel(state, selection, focus, title, body);
+    } else if (selection.kind === "stored") {
+      actions = UI.storedPanel(state, selection, focus, title, body);
     } else {
-      actions = UI.shopPanel(state, title, body);
+      actions = UI.armyPanel(state, focus, title, body);
     }
 
     list.replaceChildren(
@@ -345,6 +350,24 @@ const UI = {
     return Rules.getActionsForSpace(state, space.id);
   },
 
+  // "Fits onto Trooper 4-5." or a hint to pick one of your units first.
+  fitNote(state, focus) {
+    return focus && focus.unit.owner === state.currentPlayer
+      ? `Fits onto <b>${Units.label(state, focus.unit.id)}</b> (the unit in the weapon menu).`
+      : "Click one of your units, on the board or in your reserve, to fit this onto its weapon.";
+  },
+
+  partDetailsHtml(instance, extra) {
+    const part = WEAPON_PARTS[instance.partId];
+    const rarity = instance.rarity && Rarity.get(instance.rarity);
+    const description = part.versionFor(instance).description;
+    return `
+      <p>${UI.partHtml(instance)} <span class="muted">${UI.partKind(part)}</span>
+         ${rarity ? `<span style="color:${rarity.color}">${rarity.name}</span>` : ""}${extra || ""}</p>
+      <p>${UI.partStatsHtml(instance)}</p>
+      ${description ? `<p class="muted">${description}</p>` : ""}`;
+  },
+
   offerPanel(state, selection, focus, title, body) {
     const slot = Market.slot(state, selection.pile, selection.slot);
     title.textContent = "Market";
@@ -352,32 +375,52 @@ const UI = {
       body.innerHTML = `<p class="muted">This offer has been bought.</p>`;
       return [];
     }
-    const instance = slot.item;
-    const part = WEAPON_PARTS[instance.partId];
-    const rarity = instance.rarity && Rarity.get(instance.rarity);
-    const description = part.versionFor(instance).description;
-    const cost = Market.price(instance);
+    const cost = Market.price(slot.item);
+    body.innerHTML =
+      UI.partDetailsHtml(slot.item, ` · ${cost === null ? "price TBD" : `$${cost}`}${slot.locked ? ` · <span class="lock-note">locked</span>` : ""}`) +
+      `<p class="muted">${UI.fitNote(state, focus)}</p>`;
     const mine = focus && focus.unit.owner === state.currentPlayer;
-    body.innerHTML = `
-      <p>${UI.partHtml(instance)} <span class="muted">${UI.partKind(part)}</span>
-         ${rarity ? `<span style="color:${rarity.color}">${rarity.name}</span>` : ""}
-         · ${cost === null ? "price TBD" : `$${cost}`}${slot.locked ? ` · <span class="lock-note">locked</span>` : ""}</p>
-      <p>${UI.partStatsHtml(instance)}</p>
-      ${description ? `<p class="muted">${description}</p>` : ""}
-      <p class="muted">${mine ? `Buying fits it onto ${Units.def(focus.unit).name} ${focus.row + 1}-${focus.col + 1}.` : "Select one of your units on the board to buy this onto its weapon."}</p>`;
-    return Rules.getActionsForOffer(state, selection.pile, selection.slot, mine ? focus.id : null);
+    return Rules.getActionsForOffer(state, selection.pile, selection.slot, mine ? focus.unit.id : null);
   },
 
-  shopPanel(state, title, body) {
+  storedPanel(state, selection, focus, title, body) {
+    const instance = state.players[state.currentPlayer].storage[selection.index];
+    title.textContent = "Storage";
+    if (!instance) {
+      body.innerHTML = `<p class="muted">That part is no longer in storage.</p>`;
+      return [];
+    }
+    body.innerHTML = UI.partDetailsHtml(instance) + `<p class="muted">${UI.fitNote(state, focus)}</p>`;
+    const mine = focus && focus.unit.owner === state.currentPlayer;
+    return mine ? Rules.getActionsForStored(state, selection.index, focus.unit.id) : [];
+  },
+
+  // Reserve units (click to see their weapon), stored parts, and buying units.
+  armyPanel(state, focus, title, body) {
     const player = state.players[state.currentPlayer];
-    title.textContent = `${player.name} · Units`;
-    const counts = {};
-    for (const u of player.reserve) counts[u.typeId] = (counts[u.typeId] || 0) + 1;
-    const reserve = Object.entries(counts).map(([typeId, n]) => `${UNIT_TYPES[typeId].name} ×${n}`).join(", ");
+    title.textContent = `${player.name} · Army`;
+    const reserve = player.reserve
+      .map((u) => {
+        const parts = Armory.installed(u.weapon).length;
+        const selected = focus && focus.unit.id === u.id;
+        return `<button class="chip ${selected ? "selected" : ""}" data-unit="${u.id}">${Units.def(u).name}
+                  <span class="muted">· ${parts} part${parts === 1 ? "" : "s"}</span></button>`;
+      })
+      .join("");
+    const storage = player.storage
+      .map((item, index) => `<button class="chip" data-stored="${index}">${UI.partHtml(item)}</button>`)
+      .join("");
     body.innerHTML = `
-      <p><span class="muted">Reserve:</span> ${reserve || "empty"}</p>
-      <p class="muted">Income next turn: $${Rules.income(state)}. To deploy, click an empty octagon.</p>
+      <p class="muted">Reserve (click to see its weapon)</p>
+      <div class="chip-wrap">${reserve || `<span class="muted">empty</span>`}</div>
+      <p class="muted">Storage (click to fit onto the unit in the weapon menu)</p>
+      <div class="chip-wrap">${storage || `<span class="muted">empty</span>`}</div>
+      <p class="muted">Income next turn: $${Rules.income(state)}. To deploy, click an empty octagon by a deployable building.</p>
       ${Object.keys(UNIT_TYPES).length ? "" : `<p class="muted">No units in the catalogue yet.</p>`}`;
+    body.querySelectorAll("[data-unit]").forEach((el) => (el.onclick = () => UI.handlers.onFocus(Number(el.dataset.unit))));
+    body.querySelectorAll("[data-stored]").forEach((el) => {
+      el.onclick = () => UI.handlers.onSelect({ kind: "stored", index: Number(el.dataset.stored) });
+    });
     return Rules.getActionsOfType(state, "BUY_UNIT");
   },
 };

@@ -215,6 +215,8 @@ b.scaled { font-weight: 800; }
 }
 .chip b { font-weight: 600; }
 .chip.selected { border-color: var(--accent); }
+.chip-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 6px; }
+.chip-wrap .chip { flex: 0 1 auto; max-width: 100%; }
 .chip.locked { border-color: #ffd54f; box-shadow: inset 0 0 0 1px #ffd54f55; }
 .chip.locked::before { content: "🔒 "; }
 .lock-note { color: #ffd54f; }

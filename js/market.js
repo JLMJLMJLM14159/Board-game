@@ -51,8 +51,11 @@ const Market = {
     return s ? s.item : null;
   },
 
-  // Price of an offer. PLACEHOLDER RULE: rarity doesn't change the price.
+  // Price of an offer: the part's cost plus its rarity's extra cost ($1 per step up).
+  // null while the part's cost isn't decided yet.
   price(instance) {
-    return WEAPON_PARTS[instance.partId].cost;
+    const cost = WEAPON_PARTS[instance.partId].cost;
+    if (cost === null) return null;
+    return cost + (instance.rarity ? Rarity.get(instance.rarity).extraCost : 0);
   },
 };

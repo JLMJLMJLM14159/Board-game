@@ -39,6 +39,31 @@ const Units = {
     return Object.values(state.spaces).find((s) => s.unit && s.unit.id === unitId) || null;
   },
 
+  // Finds a unit wherever it is: { unit, space } if deployed, { unit, space: null }
+  // if in a reserve, or null if it no longer exists.
+  find(state, unitId) {
+    const space = Units.spaceOf(state, unitId);
+    if (space) return { unit: space.unit, space };
+    for (const player of state.players) {
+      const unit = player.reserve.find((u) => u.id === unitId);
+      if (unit) return { unit, space: null };
+    }
+    return null;
+  },
+
+  // Every unit a player has, deployed and in reserve.
+  allOf(state, player) {
+    const deployed = Object.values(state.spaces).filter((s) => s.unit && s.unit.owner === player).map((s) => s.unit);
+    return [...deployed, ...state.players[player].reserve];
+  },
+
+  // A short name for buttons: "Trooper 4-5", or "Trooper (reserve)".
+  label(state, unitId) {
+    const found = Units.find(state, unitId);
+    const where = found.space ? `${found.space.row + 1}-${found.space.col + 1}` : "(reserve)";
+    return `${Units.def(found.unit).name} ${where}`;
+  },
+
   def(unit) {
     return UNIT_TYPES[unit.typeId];
   },

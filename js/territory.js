@@ -1,8 +1,9 @@
 // =============================================================
 // territory.js — who controls which spaces. Pure logic, no drawing.
 //
-// - An octagon is controlled by the last player whose unit stood on it
-//   (space.controller), and stays theirs until an enemy unit steps on it.
+// - An octagon is controlled by the last player whose MILITARY unit stood on it
+//   (space.controller), and stays theirs until an enemy military unit steps on it.
+//   Civilian units never take control, so they can't help capture buildings.
 // - A building (on a square) belongs to space.building.owner. It's captured
 //   when another player controls CONFIG.captureThreshold of the 4 octagons
 //   around it.
@@ -12,9 +13,14 @@
 // =============================================================
 
 const Territory = {
-  // A unit standing on an octagon claims it.
+  // Gives a player control of an octagon.
   claim(space, player) {
     space.controller = player;
+  },
+
+  // A unit arriving on an octagon claims it, unless it's a civilian.
+  claimBy(space, unit) {
+    if (!Units.isCivilian(unit)) Territory.claim(space, unit.owner);
   },
 
   // How many of the octagons around a square each player controls,
