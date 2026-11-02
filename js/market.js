@@ -19,8 +19,9 @@ const Market = {
     return { bases: slots(CONFIG.market.bases), parts: slots(CONFIG.market.parts) };
   },
 
-  // Rerolls every unlocked slot in the current player's market.
-  // PLACEHOLDER RULE: each offer is any part from the catalogue with equal chance (repeats allowed).
+  // Rerolls every unlocked slot in the current player's market. Each offer is any
+  // part from the catalogue with equal chance (repeats allowed); its rarity is
+  // then rolled with the weights in CONFIG.rarities.
   refresh(state) {
     const market = state.players[state.currentPlayer].market;
     const all = Object.values(WEAPON_PARTS);

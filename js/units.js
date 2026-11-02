@@ -12,6 +12,9 @@
 //     shotsTaken: 0,      // shots used this turn
 //     buildsTaken: 0,     // buildings built this turn (units with the build ability)
 //     healsTaken: 0,      // heals given this turn (units with the heal ability)
+//     counters: { thermal: 0, electrical: 0, biological: 0 },
+//                         // net counters per element: +3 = three positive,
+//                         // -2 = two negative (positive and negative cancel out)
 //     weapon: { base, barrel, mag, attachments },   // its own weapon (see armory.js)
 //   }
 //
@@ -32,6 +35,7 @@ const Units = {
       shotsTaken: 0,
       buildsTaken: 0,
       healsTaken: 0,
+      counters: Object.fromEntries(Synergy.ids().map((id) => [id, 0])),
       weapon: Armory.createEmptyWeapon(),
     };
   },
@@ -79,6 +83,22 @@ const Units = {
   ability(unit, name) {
     const abilities = Units.def(unit).abilities || {};
     return abilities[name] || null;
+  },
+
+  // ---- Element counters ----
+  // A unit holds positive and negative counters for each element. Only counters
+  // of the SAME element cancel out, so each element is stored as one net number.
+
+  // Gives a unit `amount` counters of an element: positive numbers add positive
+  // counters, negative numbers add negative ones (cancelling positives first).
+  addCounters(unit, element, amount) {
+    if (!(element in unit.counters)) throw new Error(`Unknown element "${element}".`);
+    unit.counters[element] += amount;
+  },
+
+  // Net counters of one element: e.g. 3 = three positive, -1 = one negative, 0 = none.
+  counters(unit, element) {
+    return unit.counters[element];
   },
 
   // The weapons this unit is using: each unit has its own one.

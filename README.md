@@ -52,8 +52,8 @@ Rarity adds $1 per step on top of a part's price. A unit, part or building can s
 ## Turn structure
 
 Each turn goes **Beginning → Main → Unit control → End**.
-Beginning and End are automatic: they run any triggers ("at the beginning of your turn...")
-and then skip straight on. A unit or building gets a trigger by adding
+Beginning and End are automatic: they run any triggers ("at the beginning/end of each turn...")
+and then skip straight on. Triggers fire on **both** players' turns. A unit or building gets a trigger by adding
 `triggers: { beginning(state, space) {...} }` to its entry in `js/data/`.
 
 At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
@@ -70,7 +70,7 @@ During **Main**:
   can be fitted onto any of your units later. A part's price is its game-length price plus $1 per rarity step
   (Common +0 … Legendary +4). Unbought offers reroll at your next main phase unless you **lock** them;
 - **bought units** (civilian or military) go to your reserve; **deploy** reserve units onto
-  empty octagons next to your deployable buildings; civilians can **build**. Storage can only be used
+  empty octagons next to your deployable buildings, up to 2 per turn (`CONFIG.deploysPerTurn`); civilians can **build**. Storage can only be used
   during Main. Prices and starting units come from the game length.
 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
@@ -97,10 +97,19 @@ can hit (red), then click the space to do it.
 Their stats are starting guesses in `js/data/units.js`. Abilities are set per unit type (`abilities: { build, heal }`),
 and each unit type has a board icon (`icon`, drawn from `js/icons.js`).
 
+## Element counters
+
+Units can hold **positive and negative counters for each element** (thermal, electrical, biological), e.g.
+3 positive electrical. Positive and negative counters of the **same** element cancel out, so each element is
+stored as one net number (`unit.counters`, changed with `Units.addCounters(unit, element, amount)`). They're shown
+above the unit on the board and in the info panel. What gives or uses counters will come from weapon parts.
+
 ## Territory and buildings
 
-The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, each with an **HQ**
-(`CONFIG.startingBuildings`), and controls the 4 octagons around it.
+The board is 8×8 octagons. Squares sit where four octagons meet; along the edges there are **half squares**
+(touching 2 octagons) and in the corners **quarter squares** (touching 1). The game is for 2 players:
+Player 1's **HQ** is on the middle half square of the bottom edge, Player 2's on the top edge
+(`CONFIG.startingBuildings`), and each starts controlling the octagons around it.
 **Capturing the enemy HQ ends the game and wins it.**
 
 - **Control:** when your **military** unit steps onto an octagon it becomes yours (tinted your colour) and
@@ -110,8 +119,9 @@ The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, e
 - **Building:** only units with the build ability (the **Builder**) can build, on an empty square touching
   them, once per turn. Buildings cost money (`cost`).
   The HQ can't be built.
-- **Capturing:** a building switches to the enemy when they control 3 of the 4 octagons around it
-  (`CONFIG.captureThreshold`). Buildings are coloured by owner.
+- **Capturing:** a building switches to the enemy when they control a **majority** of the octagons around
+  it: 3 of 4 for a full square, 2 of 2 for an edge half square (like the HQs), 1 of 1 for a corner.
+  Buildings are coloured by owner.
 
 ## Weapon part classes
 

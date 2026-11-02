@@ -5,8 +5,8 @@
 //   (space.controller), and stays theirs until an enemy military unit steps on it.
 //   Civilian units never take control, so they can't help capture buildings.
 // - A building (on a square) belongs to space.building.owner. It's captured
-//   when another player controls CONFIG.captureThreshold of the 4 octagons
-//   around it.
+//   when another player controls a MAJORITY of the octagons around it:
+//   3 of 4 (full square), 2 of 2 (edge half square), 1 of 1 (corner quarter).
 // - Units deploy onto empty octagons touching one of your DEPLOYABLE buildings.
 // - Units with the build ability (the Builder) build on empty squares touching them.
 // - Capturing a building with `capturingWins` (the HQ) wins the game.
@@ -34,6 +34,11 @@ const Territory = {
     return counts;
   },
 
+  // How many octagons around a square someone must control to capture it: a majority.
+  captureNeeded(state, square) {
+    return Math.floor(Board.neighbors(state.spaces, square).length / 2) + 1;
+  },
+
   // Hands every building over to an enemy controlling enough octagons around it.
   // Runs after every action and phase, which are the moments control can change.
   captureBuildings(state) {
@@ -41,7 +46,7 @@ const Territory = {
       if (!space.building) continue;
       const counts = Territory.controlAround(state, space);
       for (const [player, count] of Object.entries(counts)) {
-        if (Number(player) !== space.building.owner && count >= CONFIG.captureThreshold) {
+        if (Number(player) !== space.building.owner && count >= Territory.captureNeeded(state, space)) {
           space.building.owner = Number(player);
         }
       }

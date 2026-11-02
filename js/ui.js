@@ -99,6 +99,18 @@ const UI = {
     return pts.map(([dx, dy]) => `${x + dx},${y + dy}`).join(" ");
   },
 
+  // The middle of the part of a square you can see: edge and corner squares are
+  // cut off by the board's edge, so their middle moves inwards.
+  visibleCenter(space) {
+    const { x, y } = UI.center(space);
+    const { octagonRows: rows, octagonCols: cols } = CONFIG.board;
+    const shift = CORNER * 0.42;
+    return {
+      x: x + (space.col === -1 ? shift : space.col === cols - 1 ? -shift : 0),
+      y: y + (space.row === -1 ? shift : space.row === rows - 1 ? -shift : 0),
+    };
+  },
+
   // Draws an icon from icons.js centred on (x, y), `size` units across, in `color`.
   // Falls back to the first two letters of `fallback` if there's no such icon.
   svgIcon(name, x, y, size, color, fallback, className) {
@@ -134,6 +146,13 @@ const UI = {
     const { octagonRows: rows, octagonCols: cols } = CONFIG.board;
     svg.setAttribute("viewBox", `0 0 ${cols * OCT + PAD * 2} ${rows * OCT + PAD * 2}`);
     svg.replaceChildren();
+
+    // Everything is clipped to the board's edge, which is what turns the squares
+    // on the edges into halves and the ones in the corners into quarters.
+    svg.innerHTML = `<defs><clipPath id="board-clip"><rect x="${PAD}" y="${PAD}" width="${cols * OCT}" height="${rows * OCT}"/></clipPath></defs>`;
+    const boardLayer = document.createElementNS(SVG_NS, "g");
+    boardLayer.setAttribute("clip-path", "url(#board-clip)");
+    svg.appendChild(boardLayer);
 
     const selectedSpace = selection && selection.kind === "space" ? state.spaces[selection.id] : null;
     const selectedUnit = selectedSpace && selectedSpace.unit;
@@ -199,15 +218,24 @@ const UI = {
         g.appendChild(UI.svgIcon(def.icon, x, y - 5, 27, color, def.name, "occupant octagon"));
         const hp = `${Units.health(state, space.unit)}/${Units.maxHealth(state, space.unit)}`;
         g.appendChild(UI.svgText(x, y + 16, hp, "health"));
+        // Element counters along the top: e.g. a yellow "+3" is three positive electrical.
+        const shown = CONFIG.synergyElements.filter((e) => Units.counters(space.unit, e.id) !== 0);
+        shown.forEach((e, i) => {
+          const n = Units.counters(space.unit, e.id);
+          const cx = x + (i - (shown.length - 1) / 2) * 15;
+          g.appendChild(UI.svgText(cx, y - 23, `${n > 0 ? "+" : "−"}${Math.abs(n)}`, "counter", e.color));
+        });
       } else if (space.building) {
         const def = BUILDING_TYPES[space.building.typeId];
-        g.appendChild(UI.svgIcon(def.icon, x, y, 15, "#0b0f14", def.name, "occupant square"));
+        const c = UI.visibleCenter(space);
+        const size = { full: 15, half: 11, quarter: 8 }[space.shape];
+        g.appendChild(UI.svgIcon(def.icon, c.x, c.y, size, "#0b0f14", def.name, "occupant square"));
       }
 
       g.addEventListener("click", () =>
         clickAction ? UI.handlers.onAction(clickAction) : UI.handlers.onSelect({ kind: "space", id: space.id })
       );
-      svg.appendChild(g);
+      boardLayer.appendChild(g);
     }
   },
 
@@ -375,7 +403,19 @@ const UI = {
          · <span class="muted">Range</span> ${Units.range(state, u)}</p>
       <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}
          · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>
-      ${UI.abilitiesHtml(u)}`;
+      ${UI.abilitiesHtml(u)}
+      ${UI.countersHtml(u)}`;
+  },
+
+  // "Counters +3 Electrical · −1 Thermal", in each element's colour.
+  countersHtml(u) {
+    const parts = CONFIG.synergyElements
+      .filter((e) => Units.counters(u, e.id) !== 0)
+      .map((e) => {
+        const n = Units.counters(u, e.id);
+        return `<b style="color:${e.color}">${n > 0 ? "+" : "−"}${Math.abs(n)} ${e.name}</b>`;
+      });
+    return `<p><span class="muted">Counters</span> ${parts.length ? parts.join(" · ") : `<span class="muted">none</span>`}</p>`;
   },
 
   // "Builds left 1/1 · Heals left 0/1 (range 1)" for units with abilities.
@@ -401,7 +441,8 @@ const UI = {
   },
 
   spacePanel(state, space, title, body) {
-    title.textContent = `${space.kind === "octagon" ? "Octagon" : "Square"} ${space.row + 1}-${space.col + 1}`;
+    const name = space.kind === "octagon" ? "Octagon" : { full: "Square", half: "Edge square", quarter: "Corner square" }[space.shape];
+    title.textContent = `${name} ${space.row + 1}-${space.col + 1}`;
     if (space.unit) {
       body.innerHTML = UI.unitHtml(state, space.unit);
     } else if (space.building) {
@@ -409,17 +450,22 @@ const UI = {
       const def = BUILDING_TYPES[b.typeId];
       const enemy = Territory.controlAround(state, space);
       const enemyBest = Math.max(0, ...Object.entries(enemy).filter(([p]) => Number(p) !== b.owner).map(([, n]) => n));
+      const around = Board.neighbors(state.spaces, space).length;
       body.innerHTML = `
         <p><b>${def.name}</b> <span class="muted">(${state.players[b.owner].name})</span>
            ${def.deployable ? `<span class="muted">· units deploy around it</span>` : ""}</p>
-        <p><span class="muted">Enemy controls</span> ${enemyBest} of 4 octagons around it
-           <span class="muted">(${CONFIG.captureThreshold} captures it)</span></p>
+        <p><span class="muted">Enemy controls</span> ${enemyBest} of ${around} octagon${around === 1 ? "" : "s"} around it
+           <span class="muted">(${Territory.captureNeeded(state, space)} captures it)</span></p>
         ${def.description ? `<p class="muted">${def.description}</p>` : ""}`;
     } else {
       body.innerHTML = `<p class="muted">Empty ${space.kind === "octagon" ? "octagon (units go here)" : "square (buildings go here)"}.</p>`;
     }
     if (space.kind === "octagon") {
       body.innerHTML += `<p><span class="muted">Controlled by</span> ${space.controller === null ? "nobody" : state.players[space.controller].name}</p>`;
+      if (!space.unit && state.phase === "main") {
+        const player = state.players[state.currentPlayer];
+        body.innerHTML += `<p><span class="muted">Deploys left this turn</span> ${CONFIG.deploysPerTurn - player.deploysThisTurn}/${CONFIG.deploysPerTurn}</p>`;
+      }
     }
     return Rules.getActionsForSpace(state, space.id);
   },

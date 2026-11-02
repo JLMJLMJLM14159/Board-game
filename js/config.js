@@ -5,11 +5,13 @@
 
 const CONFIG = {
   // ---- Main board (octagon + square tiling) ----
-  // The board is a grid of octagons. A square sits in each gap
-  // where four octagons meet, so there are (rows-1) x (cols-1) squares.
+  // The board is a grid of octagons. A square sits in each gap where four
+  // octagons meet. Along the edges there are half squares (touching 2 octagons)
+  // and in the corners quarter squares (touching 1). Squares are numbered
+  // from -1 to octagonRows-1 / octagonCols-1, so -1 is the top/left edge.
   board: {
-    octagonRows: 9,
-    octagonCols: 9,
+    octagonRows: 8,
+    octagonCols: 8,
   },
 
   // ---- Players ----
@@ -21,15 +23,17 @@ const CONFIG = {
 
   // ---- Territory ----
   // Buildings each player starts with, one list per player. `row`/`col` pick the
-  // square (squares run 0 to octagonRows-2 / octagonCols-2). Update these if the
-  // board size changes. They're placed opposite each other so neither side is favoured.
+  // square (see the board numbering above). Update these if the board size changes.
+  // Both HQs sit on the middle half square of their edge.
   startingBuildings: [
-    [{ typeId: "hq", row: 7, col: 3 }],   // Player 1: bottom edge
-    [{ typeId: "hq", row: 0, col: 4 }],   // Player 2: top edge
+    [{ typeId: "hq", row: 7, col: 3 }],    // Player 1: bottom edge, centred
+    [{ typeId: "hq", row: -1, col: 3 }],   // Player 2: top edge, centred
   ],
+  // A building is captured by controlling a majority of the octagons around it:
+  // 3 of 4 for a full square, 2 of 2 for an edge half square, 1 of 1 for a corner.
 
-  // How many of the 4 octagons around a building an enemy must control to capture it.
-  captureThreshold: 3,
+  // How many units each player can deploy per turn.
+  deploysPerTurn: 2,
 
   // ---- Game lengths ----
   // Chosen when starting a new game. Each sets the starting money, the units
@@ -80,7 +84,6 @@ const CONFIG = {
   market: { parts: 5, bases: 2 },
 
   // Selling a stored part gives back this share of its price, rounded down.
-  // PLACEHOLDER: the sell rate isn't decided yet.
   sellRate: 0.5,
 
   // ---- Units ----
@@ -107,7 +110,6 @@ const CONFIG = {
   // `multiplier` scales the part's power (1, 2, 3, 5, 8: Fibonacci).
   // `weight` is how likely each rarity is to be rolled, relative to the others.
   // `extraCost` is added to a part's market price: $1 more per step up.
-  // PLACEHOLDER: the weights (odds) aren't decided yet.
   rarities: [
     { id: "common",    name: "Common",    color: "#c4c9cf", multiplier: 1, weight: 50, extraCost: 0 },
     { id: "uncommon",  name: "Uncommon",  color: "#4caf50", multiplier: 2, weight: 25, extraCost: 1 },

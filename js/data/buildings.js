@@ -1,7 +1,7 @@
 // =============================================================
 // data/buildings.js — buildings that live on SQUARE spaces.
-// Each square touches 4 octagons. A building is captured when an
-// enemy controls 3 of them (CONFIG.captureThreshold).
+// A square touches 4 octagons (2 on an edge, 1 in a corner). A building is
+// captured when an enemy controls a majority of them.
 // =============================================================
 
 // Template:
@@ -17,8 +17,8 @@
 //     stats: {},
 //     description: "",
 //
-//     // Optional: effects that happen automatically in a phase of the
-//     // owner's turn, e.g. healing nearby units. Change `state` directly.
+//     // Optional: effects that happen automatically at the beginning/end of EACH
+//     // turn (both players'), e.g. healing nearby units. Change `state` directly.
 //     triggers: {
 //       beginning(state, space) {},
 //       end(state, space) {},

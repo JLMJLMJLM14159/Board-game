@@ -80,11 +80,14 @@ const ACTIONS = {
       }
       return out;
     },
-    // Onto an empty octagon touching one of your deployable buildings.
-    // PLACEHOLDER RULE: main phase only, free.
+    // Onto an empty octagon touching one of your deployable buildings, during
+    // Main, free, up to CONFIG.deploysPerTurn units per turn.
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
+      if (state.players[state.currentPlayer].deploysThisTurn >= CONFIG.deploysPerTurn) {
+        return no(`You can only deploy ${CONFIG.deploysPerTurn} units per turn.`);
+      }
       if (!state.players[state.currentPlayer].reserve.some((u) => u.id === a.unitId)) return no("That unit isn't in your reserve.");
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "octagon") return no("Units go on octagons.");
@@ -96,6 +99,7 @@ const ACTIONS = {
       const reserve = state.players[state.currentPlayer].reserve;
       const [unit] = reserve.splice(reserve.findIndex((u) => u.id === a.unitId), 1);
       state.spaces[a.spaceId].unit = unit;
+      state.players[state.currentPlayer].deploysThisTurn++;
       Territory.claimBy(state.spaces[a.spaceId], unit);
     },
   },
@@ -174,7 +178,7 @@ const ACTIONS = {
 
   // A unit with the heal ability restores one of your units within its heal
   // range (or itself) to full health.
-  // PLACEHOLDER RULE: only during Unit control, and only your own units.
+  // Only during Unit control, and only your own units.
   HEAL: {
     label: (a, state) => {
       const target = state.spaces[a.target].unit;
@@ -362,8 +366,7 @@ const ACTIONS = {
     },
   },
 
-  // Locks (or unlocks) a market slot so it doesn't reroll next turn.
-  // PLACEHOLDER RULE: locking is free.
+  // Locks (or unlocks) a market slot so it doesn't reroll next turn. Free.
   LOCK_OFFER: {
     label: (a, state) => (Market.slot(state, a.pile, a.slot).locked ? "Unlock (reroll next turn)" : "Lock (keep for a later turn)"),
     list(state) {
@@ -449,6 +452,7 @@ const Rules = {
       name: p.name,
       color: p.color,
       money: length.startingMoney,
+      deploysThisTurn: 0,
       reserve: length.startingUnits.map((typeId) => Units.create(state, typeId, i)),
       market: Market.create(),
       storage: [], // part instances bought or replaced, waiting to be fitted
@@ -522,6 +526,7 @@ const Rules = {
   // Built-in beginning-of-turn rule.
   startTurn(state) {
     Units.resetTurn(state, state.currentPlayer);
+    state.players[state.currentPlayer].deploysThisTurn = 0;
     state.players[state.currentPlayer].money += Rules.income(state);
   },
 
@@ -557,13 +562,14 @@ const Rules = {
     if (phase.auto && state.winner === null) Rules.advancePhase(state);
   },
 
-  // Runs every "at the <phase> of your turn" effect. Any unit or building
+  // Runs every "at the beginning/end of each turn" effect. Any unit or building
   // type with `triggers: { <phaseId>(state, space) {...} }` in data/ reacts here.
-  // PLACEHOLDER RULE: only the current player's pieces trigger, on their own turn.
+  // Every piece triggers on EVERY player's turn; state.currentPlayer says whose
+  // turn it is if a trigger only cares about one side.
   runPhaseTriggers(state, phaseId) {
     for (const space of Object.values(state.spaces)) {
       const piece = space.unit || space.building;
-      if (!piece || piece.owner !== state.currentPlayer) continue;
+      if (!piece) continue;
       const def = space.unit ? UNIT_TYPES[piece.typeId] : BUILDING_TYPES[piece.typeId];
       const trigger = def && def.triggers && def.triggers[phaseId];
       if (trigger) trigger(state, space);

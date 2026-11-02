@@ -24,8 +24,8 @@
 //     abilities: {},
 //     description: "",
 //
-//     // Optional: effects that happen automatically in a phase of the
-//     // owner's turn ("at the beginning of your turn..."). Change `state` directly.
+//     // Optional: effects that happen automatically at the beginning/end of EACH
+//     // turn (both players'). state.currentPlayer says whose turn it is.
 //     triggers: {
 //       beginning(state, space) {},
 //       end(state, space) {},
@@ -35,7 +35,7 @@
 // Weapon parts change a unit's stats through their own stats with the
 // same names, e.g. a heavy barrel with stats: { movement: -1, range: 2 }.
 //
-// PLACEHOLDER: all the stats below are starting guesses to playtest with.
+// PLACEHOLDER: all the stats below are starting guesses to playtest with (may change later).
 const UNIT_TYPES = {
   troop: {
     id: "troop",
@@ -63,7 +63,7 @@ const UNIT_TYPES = {
     category: "civilian",
     icon: "medic",
     stats: { health: 3, movement: 2, range: 0, damage: 0, shots: 0 },
-    // PLACEHOLDER RULE: heals one of your units within 1 step (or itself).
+    // Heals one of your units within 1 step (or itself), during Unit control.
     abilities: { heal: { perTurn: 1, range: 1 } },
     description: "Restores one unit (or itself) to full health each turn.",
   },
