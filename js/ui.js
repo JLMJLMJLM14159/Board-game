@@ -7,6 +7,7 @@
 //   { kind: "space",  id: "O-2-3" }
 //   { kind: "offer",  pile: "parts", slot: 2 }   // a market offer
 //   { kind: "unitType", typeId: "trooper" }       // a unit for sale in the shop
+//   { kind: "reserveUnit", unitId: 7 }            // a unit in your reserve
 //
 // "focusUnitId" is the unit whose weapon is shown in the weapon menu: the last
 // unit clicked, on the board or in the reserve. Parts are fitted onto its weapon.
@@ -320,6 +321,8 @@ const UI = {
       actions = UI.spacePanel(state, state.spaces[selection.id], title, body);
     } else if (selection.kind === "offer") {
       actions = UI.offerPanel(state, selection, focus, title, body);
+    } else if (selection.kind === "reserveUnit") {
+      actions = UI.reserveUnitPanel(state, selection, title, body);
     } else {
       actions = UI.unitTypePanel(state, selection, title, body);
     }
@@ -337,18 +340,34 @@ const UI = {
     }
   },
 
+  // A unit's name and stats (worked out now, from its type and weapon).
+  unitHtml(state, u) {
+    const def = Units.def(u);
+    return `
+      <p><b>${def.name}</b> <span class="muted">(${def.category}, ${state.players[u.owner].name})</span></p>
+      <p><span class="muted">Health</span> ${Units.health(state, u)}/${Units.maxHealth(state, u)}
+         · <span class="muted">Damage</span> ${Units.damage(state, u)}
+         · <span class="muted">Range</span> ${Units.range(state, u)}</p>
+      <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}
+         · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>`;
+  },
+
+  reserveUnitPanel(state, selection, title, body) {
+    const found = Units.find(state, selection.unitId);
+    title.textContent = "Reserve";
+    if (!found) {
+      body.innerHTML = `<p class="muted">That unit is no longer in your reserve.</p>`;
+      return [];
+    }
+    body.innerHTML = UI.unitHtml(state, found.unit) +
+      `<p class="muted">Not deployed yet. To deploy it, click an empty octagon next to one of your deployable buildings.</p>`;
+    return [];
+  },
+
   spacePanel(state, space, title, body) {
     title.textContent = `${space.kind === "octagon" ? "Octagon" : "Square"} ${space.row + 1}-${space.col + 1}`;
     if (space.unit) {
-      const u = space.unit;
-      const def = Units.def(u);
-      body.innerHTML = `
-        <p><b>${def.name}</b> <span class="muted">(${def.category}, ${state.players[u.owner].name})</span></p>
-        <p><span class="muted">Health</span> ${Units.health(state, u)}/${Units.maxHealth(state, u)}
-           · <span class="muted">Damage</span> ${Units.damage(state, u)}
-           · <span class="muted">Range</span> ${Units.range(state, u)}</p>
-        <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}
-           · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>`;
+      body.innerHTML = UI.unitHtml(state, space.unit);
     } else if (space.building) {
       const b = space.building;
       const def = BUILDING_TYPES[b.typeId];
@@ -489,7 +508,14 @@ const UI = {
     overlay.onclick = (e) => {
       if (e.target === overlay) UI.handlers.onStorage(false);
     };
-    overlay.querySelectorAll("[data-unit]").forEach((el) => (el.onclick = () => UI.handlers.onFocus(Number(el.dataset.unit))));
+    // Picking a unit here also shows it in the info panel.
+    overlay.querySelectorAll("[data-unit]").forEach((el) => {
+      el.onclick = () => {
+        const unitId = Number(el.dataset.unit);
+        const found = Units.find(state, unitId);
+        UI.handlers.onSelect(found.space ? { kind: "space", id: found.space.id } : { kind: "reserveUnit", unitId });
+      };
+    });
     overlay.querySelectorAll("[data-action]").forEach((el) => {
       const index = Number(el.dataset.stored);
       const actions = Rules.getActionsForStored(state, index, mine ? focus.unit.id : null);

@@ -18,6 +18,7 @@ UI.init({
     selection = next;
     const space = next.kind === "space" && state.spaces[next.id];
     if (space && space.unit) focusUnitId = space.unit.id;
+    if (next.kind === "reserveUnit") focusUnitId = next.unitId;
     refresh();
   },
 
