@@ -12,7 +12,7 @@
 // "focusUnitId" is the unit whose weapon is shown in the weapon menu: the last
 // unit clicked, on the board or in the reserve. Parts are fitted onto its weapon.
 //
-// The Reserve & storage window opens over everything from its own button.
+// The Reserve & storage panel is always visible, above the Shop.
 // =============================================================
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -34,14 +34,14 @@ const UI = {
     document.getElementById("restart").onclick = handlers.onRestart;
   },
 
-  render(state, selection, canUndo, focusUnitId, storageOpen) {
+  render(state, selection, canUndo, focusUnitId) {
     const focus = focusUnitId ? Units.find(state, focusUnitId) : null;
     UI.renderTopBar(state, canUndo);
     UI.renderBoard(state, selection);
     UI.renderMarket(state, selection);
     UI.renderWeapon(state, focus);
     UI.renderPanel(state, selection, focus);
-    UI.renderStorage(state, focus, storageOpen);
+    UI.renderStorage(state, focus);
   },
 
   renderTopBar(state, canUndo) {
@@ -435,19 +435,16 @@ const UI = {
     return Rules.getActionsOfType(state, "BUY_UNIT").filter((a) => a.unitTypeId === def.id);
   },
 
-  // ---------- Reserve & storage window ----------
+  // ---------- Reserve & storage panel (always visible) ----------
 
-  renderStorage(state, focus, open) {
+  renderStorage(state, focus) {
+    const root = document.getElementById("storage");
     const player = state.players[state.currentPlayer];
-    const button = document.getElementById("open-storage");
-    button.innerHTML = `Reserve &amp; storage <span>${player.reserve.length} unit${player.reserve.length === 1 ? "" : "s"} · ${player.storage.length} part${player.storage.length === 1 ? "" : "s"}</span>`;
-    button.onclick = () => UI.handlers.onStorage(true);
-
-    const overlay = document.getElementById("overlay");
-    overlay.hidden = !open;
-    if (!open) return;
-
     const mine = focus && focus.unit.owner === state.currentPlayer;
+
+    // Re-rendering replaces the lists, so remember where each one was scrolled to.
+    const scroll = [...root.querySelectorAll(".storage-cols > section")].map((el) => el.scrollTop);
+
     const partsList = (weapon) => {
       const parts = Armory.installed(weapon);
       return parts.length ? parts.map((i) => UI.partHtml(i)).join(", ") : `<span class="muted">no parts</span>`;
@@ -485,38 +482,29 @@ const UI = {
       })
       .join("");
 
-    overlay.innerHTML = `
-      <div class="modal" role="dialog" aria-label="Reserve and storage">
-        <div class="modal-head">
-          <h2>${player.name} · Reserve &amp; storage</h2>
-          <button id="close-storage" title="Close (Esc)">✕ Close</button>
-        </div>
-        <p class="muted">${mine
-          ? `Fitting parts onto <b>${Units.label(state, focus.unit.id)}</b>. Click another unit to change it.`
-          : "Click one of your units (deployed or in reserve) to fit stored parts onto it."}
-          ${state.phase === "main" ? "" : " Storage can only be used during the Main phase."}</p>
-        <div class="modal-cols">
-          <section>
-            <h3>Deployed</h3>${deployed || `<p class="muted">No units on the board.</p>`}
-            <h3>Reserve</h3>${reserve || `<p class="muted">No units in reserve.</p>`}
-          </section>
-          <section><h3>Storage</h3>${storage || `<p class="muted">No parts in storage.</p>`}</section>
-        </div>
+    const fitting = mine
+      ? `fitting onto <b>${Units.label(state, focus.unit.id)}</b>`
+      : "click a unit to fit parts onto it";
+    root.innerHTML = `
+      <h2>Reserve &amp; storage <span class="muted">· ${fitting}${state.phase === "main" ? "" : " · storage only works in Main"}</span></h2>
+      <div class="storage-cols">
+        <section>
+          <h3>Deployed</h3>${deployed || `<p class="muted">No units on the board.</p>`}
+          <h3>Reserve</h3>${reserve || `<p class="muted">No units in reserve.</p>`}
+        </section>
+        <section><h3>Storage</h3>${storage || `<p class="muted">No parts in storage.</p>`}</section>
       </div>`;
 
-    document.getElementById("close-storage").onclick = () => UI.handlers.onStorage(false);
-    overlay.onclick = (e) => {
-      if (e.target === overlay) UI.handlers.onStorage(false);
-    };
-    // Picking a unit here also shows it in the info panel.
-    overlay.querySelectorAll("[data-unit]").forEach((el) => {
+    root.querySelectorAll(".storage-cols > section").forEach((el, i) => (el.scrollTop = scroll[i] || 0));
+    // Picking a unit here also shows it in the info panel and weapon menu.
+    root.querySelectorAll("[data-unit]").forEach((el) => {
       el.onclick = () => {
         const unitId = Number(el.dataset.unit);
         const found = Units.find(state, unitId);
         UI.handlers.onSelect(found.space ? { kind: "space", id: found.space.id } : { kind: "reserveUnit", unitId });
       };
     });
-    overlay.querySelectorAll("[data-action]").forEach((el) => {
+    root.querySelectorAll("[data-action]").forEach((el) => {
       const index = Number(el.dataset.stored);
       const actions = Rules.getActionsForStored(state, index, mine ? focus.unit.id : null);
       el.onclick = () => UI.handlers.onAction(actions[Number(el.dataset.action)]);
