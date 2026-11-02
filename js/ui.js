@@ -433,13 +433,16 @@ const UI = {
       const parts = Armory.installed(weapon);
       return parts.length ? parts.map((i) => UI.partHtml(i)).join(", ") : `<span class="muted">no parts</span>`;
     };
-    const reserve = player.reserve
-      .map((u) => `
+    const unitCard = (u, where) => `
         <button class="card ${focus && focus.unit.id === u.id ? "selected" : ""}" data-unit="${u.id}">
-          <b>${Units.def(u).name}</b> <span class="muted">${Units.def(u).category}</span>
+          <b>${Units.def(u).name}</b> <span class="muted">${where}${Units.def(u).category}</span>
           <div>${partsList(u.weapon)}</div>
-        </button>`)
+        </button>`;
+    const deployed = Object.values(state.spaces)
+      .filter((sp) => sp.unit && sp.unit.owner === state.currentPlayer)
+      .map((sp) => unitCard(sp.unit, `${sp.row + 1}-${sp.col + 1} · `))
       .join("");
+    const reserve = player.reserve.map((u) => unitCard(u, "")).join("");
     const storage = player.storage
       .map((item, index) => {
         const part = WEAPON_PARTS[item.partId];
@@ -470,11 +473,14 @@ const UI = {
           <button id="close-storage" title="Close (Esc)">✕ Close</button>
         </div>
         <p class="muted">${mine
-          ? `Fitting parts onto <b>${Units.label(state, focus.unit.id)}</b>. Click a reserve unit, or a unit on the board, to change it.`
-          : "Click a reserve unit (or one of your units on the board) to fit stored parts onto it."}
+          ? `Fitting parts onto <b>${Units.label(state, focus.unit.id)}</b>. Click another unit to change it.`
+          : "Click one of your units (deployed or in reserve) to fit stored parts onto it."}
           ${state.phase === "main" ? "" : " Storage can only be used during the Main phase."}</p>
         <div class="modal-cols">
-          <section><h3>Reserve</h3>${reserve || `<p class="muted">No units in reserve.</p>`}</section>
+          <section>
+            <h3>Deployed</h3>${deployed || `<p class="muted">No units on the board.</p>`}
+            <h3>Reserve</h3>${reserve || `<p class="muted">No units in reserve.</p>`}
+          </section>
           <section><h3>Storage</h3>${storage || `<p class="muted">No parts in storage.</p>`}</section>
         </div>
       </div>`;

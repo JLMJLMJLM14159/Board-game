@@ -261,6 +261,7 @@ b.scaled { font-weight: 800; }
 .modal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 640px) { .modal-cols { grid-template-columns: 1fr; } }
 .modal h3 { font-size: 13px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+.modal h3 ~ h3 { margin-top: 12px; }
 .card {
   display: block;
   width: 100%;

@@ -44,8 +44,8 @@ During **Main**:
 - the **Shop** holds everything you can buy: your market of 5 random weapon parts and 2 random bases
   (`CONFIG.market`), and units. Rarity is rolled the moment a part appears in the market. Click one of
   your units (on the board, or in the **Reserve & storage** window opened by the big yellow button),
-  click an offer, and buy it onto that unit's weapon, or buy it into your **storage**. In the window you
-  can fit stored parts onto a unit, or **sell** them for half their price, rounded down (`CONFIG.sellRate`). The ✕ next to a fitted part in the
+  click an offer, and buy it onto that unit's weapon, or buy it into your **storage**. The window lists your
+  deployed and reserve units; click one, then fit stored parts onto it, or **sell** them for half their price, rounded down (`CONFIG.sellRate`). The ✕ next to a fitted part in the
   weapon menu unequips it to storage (a base only comes off once it's the only part).
   Putting a part where one already is **replaces** it, and the old part goes to storage. Stored parts
   can be fitted onto any of your units later. A part's price is its `cost` plus $1 per rarity step
