@@ -36,9 +36,10 @@ const Armory = {
     return [weapon.base, weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean);
   },
 
-  canInstall(weapon, partId, place) {
+  // `unit` is the unit carrying the weapon (some parts only fit some units).
+  canInstall(weapon, partId, place, unit) {
     const part = WEAPON_PARTS[partId];
-    return part ? part.canInstallOn(weapon, place) : { ok: false, reason: "Unknown part." };
+    return part ? part.canInstallOn(weapon, place, unit) : { ok: false, reason: "Unknown part." };
   },
 
   // Returns a NEW weapon with this part instance in the place, replacing what was there.

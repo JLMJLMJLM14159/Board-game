@@ -1,7 +1,7 @@
 // =============================================================
 // data/buildings.js — buildings that live on SQUARE spaces.
-// A square touches 4 octagons (2 on an edge, 1 in a corner). A building is
-// captured when an enemy controls a majority of them.
+// A square touches 4 octagons. A building is captured when an enemy controls
+// a majority (3) of them for a full round (see territory.js).
 // =============================================================
 
 // Template:

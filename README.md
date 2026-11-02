@@ -59,8 +59,8 @@ and then skip straight on. Triggers fire on **both** players' turns. A unit or b
 At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
 
 During **Main**:
-- the **Shop** holds everything you can buy: your market of 5 random weapon parts and 2 random bases
-  (`CONFIG.market`), and units. Rarity is rolled the moment a part appears in the market. Click one of
+- the **Shop** holds everything you can buy: your market of 2 random bases, 5 random barrels/mags and
+  2 random attachments (weapon and support attachments; `CONFIG.market`), and units. Rarity is rolled the moment a part appears in the market. Click one of
   your units (on the board, or in the **Reserve & storage** panel just above the Shop), click an offer,
   and buy it onto that unit's weapon, or buy it into your **storage**. The Reserve & storage panel is always
   visible: its unit list (deployed and reserve) and its storage list scroll separately. Click a unit there to
@@ -69,9 +69,15 @@ During **Main**:
   Putting a part where one already is **replaces** it, and the old part goes to storage. Stored parts
   can be fitted onto any of your units later. A part's price is its game-length price plus $1 per rarity step
   (Common +0 … Legendary +4). Unbought offers reroll at your next main phase unless you **lock** them;
+- **Equipping** (buying onto a unit, fitting, unequipping, upgrading) only works on units in reserve or
+  standing next to your HQ / a deployable building. Any part can be **upgraded** one rarity step for what
+  it would cost to buy at the new rarity (reaching Legendary switches to its Legendary version, if any);
 - **bought units** (civilian or military) go to your reserve; **deploy** reserve units onto
   empty octagons next to your deployable buildings, up to 2 per turn (`CONFIG.deploysPerTurn`); civilians can **build**. Storage can only be used
   during Main. Prices and starting units come from the game length.
+
+A deployed unit next to your HQ / a deployable building can **return to reserve** (during Main or Unit control):
+it heals to full and loses all its counters, and can't be redeployed until next turn.
 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
 - **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals),
@@ -92,7 +98,10 @@ can hit (red), then click the space to do it.
 |---|---|---|
 | **Troop** | military | fights; takes and holds octagons |
 | **Builder** | civilian | builds one building per turn on a square next to it |
-| **Medic** | civilian | once per turn, restores one of your units within 1 step (or itself) to full health |
+| **Medic** | civilian | once per turn, restores one of your units within 1 step (or itself) to full health and removes all its counters |
+
+Military units carry a full weapon. **Support (civilian) units** only have 2 attachment slots, and only take
+`SupportAttachment`s made for their unit type (`unitTypes: ["builder"]`).
 
 Their stats are starting guesses in `js/data/units.js`. Abilities are set per unit type (`abilities: { build, heal }`),
 and each unit type has a board icon (`icon`, drawn from `js/icons.js`).
@@ -106,10 +115,9 @@ above the unit on the board and in the info panel. What gives or uses counters w
 
 ## Territory and buildings
 
-The board is 8×8 octagons. Squares sit where four octagons meet; along the edges there are **half squares**
-(touching 2 octagons) and in the corners **quarter squares** (touching 1). The game is for 2 players:
-Player 1's **HQ** is on the middle half square of the bottom edge, Player 2's on the top edge
-(`CONFIG.startingBuildings`), and each starts controlling the octagons around it.
+The board is 8×8 octagons, with a square wherever four octagons meet. The game is for 2 players:
+Player 1's **HQ** is on the middle square of the back row at the bottom, Player 2's at the top
+(`CONFIG.startingBuildings`), and each starts controlling the 4 octagons around it.
 **Capturing the enemy HQ ends the game and wins it.**
 
 - **Control:** when your **military** unit steps onto an octagon it becomes yours (tinted your colour) and
@@ -119,9 +127,9 @@ Player 1's **HQ** is on the middle half square of the bottom edge, Player 2's on
 - **Building:** only units with the build ability (the **Builder**) can build, on an empty square touching
   them, once per turn. Buildings cost money (`cost`).
   The HQ can't be built.
-- **Capturing:** a building switches to the enemy when they control a **majority** of the octagons around
-  it: 3 of 4 for a full square, 2 of 2 for an edge half square (like the HQs), 1 of 1 for a corner.
-  Buildings are coloured by owner.
+- **Capturing:** when the enemy controls 3 of the 4 octagons around a building, it's **under siege**
+  (dashed outline in their colour). If they still hold 3 of 4 at the start of their next turn, they capture
+  it; if the owner breaks the majority first, the siege ends. Buildings are coloured by owner.
 
 ## Weapon part classes
 
@@ -131,7 +139,8 @@ WeaponPart                 any part: id, name, synergy, stats
 └── CustomPart             random rarity, optional legendary version, optional class restriction
     ├── Barrel             one per weapon
     ├── Mag                one per weapon
-    └── Attachment         2 per weapon, each a different type
+    ├── Attachment         2 per weapon, each a different type
+    └── SupportAttachment  for support units only; lists which unit types it fits
 ```
 
 Each class holds its own rules (`places`, `canInstallOn`, `installOn`, `createInstance`, `statsFor`).

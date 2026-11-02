@@ -6,9 +6,7 @@
 const CONFIG = {
   // ---- Main board (octagon + square tiling) ----
   // The board is a grid of octagons. A square sits in each gap where four
-  // octagons meet. Along the edges there are half squares (touching 2 octagons)
-  // and in the corners quarter squares (touching 1). Squares are numbered
-  // from -1 to octagonRows-1 / octagonCols-1, so -1 is the top/left edge.
+  // octagons meet, so squares are numbered 0 to octagonRows-2 / octagonCols-2.
   board: {
     octagonRows: 8,
     octagonCols: 8,
@@ -24,13 +22,14 @@ const CONFIG = {
   // ---- Territory ----
   // Buildings each player starts with, one list per player. `row`/`col` pick the
   // square (see the board numbering above). Update these if the board size changes.
-  // Both HQs sit on the middle half square of their edge.
+  // Both HQs sit on the middle square of the row nearest their own edge.
   startingBuildings: [
-    [{ typeId: "hq", row: 7, col: 3 }],    // Player 1: bottom edge, centred
-    [{ typeId: "hq", row: -1, col: 3 }],   // Player 2: top edge, centred
+    [{ typeId: "hq", row: 6, col: 3 }],   // Player 1: back row at the bottom, centred
+    [{ typeId: "hq", row: 0, col: 3 }],   // Player 2: back row at the top, centred
   ],
-  // A building is captured by controlling a majority of the octagons around it:
-  // 3 of 4 for a full square, 2 of 2 for an edge half square, 1 of 1 for a corner.
+  // A building is captured by controlling a majority (3 of 4) of the octagons
+  // around it at the start of your turn, and still holding it at the start of
+  // your NEXT turn (see territory.js).
 
   // How many units each player can deploy per turn.
   deploysPerTurn: 2,
@@ -81,7 +80,7 @@ const CONFIG = {
   // ---- Market ----
   // Slots in each player's market. Unlocked slots reroll at the start of
   // your main phase; locked ones keep their offer for a later turn.
-  market: { parts: 5, bases: 2 },
+  market: { bases: 2, parts: 5, attachments: 2 },
 
   // Selling a stored part gives back this share of its price, rounded down.
   sellRate: 0.5,

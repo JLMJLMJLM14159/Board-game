@@ -15,6 +15,7 @@
 //     counters: { thermal: 0, electrical: 0, biological: 0 },
 //                         // net counters per element: +3 = three positive,
 //                         // -2 = two negative (positive and negative cancel out)
+//     reservedOnTurn: null, // the turn it was last returned to reserve (can't redeploy that turn)
 //     weapon: { base, barrel, mag, attachments },   // its own weapon (see armory.js)
 //   }
 //
@@ -36,6 +37,7 @@ const Units = {
       buildsTaken: 0,
       healsTaken: 0,
       counters: Object.fromEntries(Synergy.ids().map((id) => [id, 0])),
+      reservedOnTurn: null,
       weapon: Armory.createEmptyWeapon(),
     };
   },
@@ -99,6 +101,22 @@ const Units = {
   // Net counters of one element: e.g. 3 = three positive, -1 = one negative, 0 = none.
   counters(unit, element) {
     return unit.counters[element];
+  },
+
+  hasCounters(unit) {
+    return Object.values(unit.counters).some((n) => n !== 0);
+  },
+
+  // Removes every counter, positive and negative.
+  clearCounters(unit) {
+    for (const element in unit.counters) unit.counters[element] = 0;
+  },
+
+  // Is the unit "at base", where it can be equipped or returned to reserve?
+  // Reserve units always are; deployed units must be next to one of their
+  // owner's deployable buildings (like the HQ).
+  atBase(state, found) {
+    return !found.space || Territory.canDeployAt(state, found.unit.owner, found.space);
   },
 
   // The weapons this unit is using: each unit has its own one.

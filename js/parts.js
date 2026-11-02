@@ -9,7 +9,12 @@
 //       │                      weapon classes
 //       ├── Barrel             one per weapon
 //       ├── Mag                one per weapon
-//       └── Attachment         up to 2 per weapon, each a different type
+//       ├── Attachment         up to 2 per weapon, each a different type
+//       └── SupportAttachment  for support (civilian) units only, e.g. a
+//                              Builder's tool kit; lists which unit types it fits
+//
+// Military units carry a full weapon. Support units only have the 2
+// attachment slots, and only take SupportAttachments made for their type.
 //
 // A part goes into a PLACE on a weapon: "base", "barrel", "mag", or an
 // attachment slot number (0, 1). Putting a part into a filled place
@@ -82,7 +87,16 @@ class WeaponPart {
     return stats;
   }
 
-  canInstallOn(weapon, place) {
+  // Can this kind of part go on this unit at all? Ordinary weapon parts are
+  // for military units only.
+  checkUnit(unit) {
+    if (unit && Units.isCivilian(unit)) return { ok: false, reason: "Support units only take their own attachments." };
+    return { ok: true };
+  }
+
+  canInstallOn(weapon, place, unit) {
+    const fitsUnit = this.checkUnit(unit);
+    if (!fitsUnit.ok) return fitsUnit;
     return this.places(weapon).includes(place) ? { ok: true } : { ok: false, reason: "That part doesn't go there." };
   }
 
@@ -106,8 +120,8 @@ class WeaponBase extends WeaponPart {
   }
 
   // A base can replace another only if every part already on the weapon fits it.
-  canInstallOn(weapon, place) {
-    const ok = super.canInstallOn(weapon, place);
+  canInstallOn(weapon, place, unit) {
+    const ok = super.canInstallOn(weapon, place, unit);
     if (!ok.ok) return ok;
     for (const instance of [weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean)) {
       const part = WEAPON_PARTS[instance.partId];
@@ -163,9 +177,11 @@ class CustomPart extends WeaponPart {
     return { ok: true };
   }
 
-  canInstallOn(weapon, place) {
+  canInstallOn(weapon, place, unit) {
+    const fitsUnit = this.checkUnit(unit);
+    if (!fitsUnit.ok) return fitsUnit;
     const fits = this.checkFitsBase(weapon);
-    return fits.ok ? super.canInstallOn(weapon, place) : fits;
+    return fits.ok ? super.canInstallOn(weapon, place, unit) : fits;
   }
 }
 
@@ -203,7 +219,9 @@ class Attachment extends CustomPart {
     return weapon.attachments[place];
   }
 
-  canInstallOn(weapon, place) {
+  canInstallOn(weapon, place, unit) {
+    const fitsUnit = this.checkUnit(unit);
+    if (!fitsUnit.ok) return fitsUnit;
     const fits = this.checkFitsBase(weapon);
     if (!fits.ok) return fits;
     if (!this.places(weapon).includes(place)) return { ok: false, reason: "No such attachment slot." };
@@ -214,6 +232,50 @@ class Attachment extends CustomPart {
       return { ok: false, reason: `This weapon already has a ${this.attachmentType} attachment.` };
     }
     return { ok: true };
+  }
+
+  installOn(weapon, instance, place) {
+    const attachments = [...weapon.attachments];
+    attachments[place] = instance;
+    return { ...weapon, attachments };
+  }
+}
+
+// An attachment for support (civilian) units, e.g. a Builder's tool kit.
+// Goes in one of the unit's attachment slots; no base needed.
+class SupportAttachment extends CustomPart {
+  constructor(def) {
+    super(def);
+    if (!Array.isArray(def.unitTypes) || def.unitTypes.length === 0) {
+      throw new Error(`${def.id}: a support attachment needs unitTypes, e.g. ["builder"].`);
+    }
+    this.unitTypes = def.unitTypes;
+  }
+
+  get slot() {
+    return "attachments";
+  }
+
+  places(weapon) {
+    return weapon.attachments.map((_, i) => i);
+  }
+
+  occupant(weapon, place) {
+    return weapon.attachments[place];
+  }
+
+  // Only for the unit types it lists.
+  checkUnit(unit) {
+    if (unit && !this.unitTypes.includes(unit.typeId)) {
+      return { ok: false, reason: `${this.name} is only for ${this.unitTypes.map((t) => UNIT_TYPES[t]?.name ?? t).join(" / ")}.` };
+    }
+    return { ok: true };
+  }
+
+  canInstallOn(weapon, place, unit) {
+    const fitsUnit = this.checkUnit(unit);
+    if (!fitsUnit.ok) return fitsUnit;
+    return this.places(weapon).includes(place) ? { ok: true } : { ok: false, reason: "No such attachment slot." };
   }
 
   installOn(weapon, instance, place) {

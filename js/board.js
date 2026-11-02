@@ -14,9 +14,7 @@
 //   - octagons above/below/left/right (shared edges)
 //   - the up-to-4 squares at its diagonal corners
 // Square (r, c) sits between octagons (r,c), (r,c+1), (r+1,c), (r+1,c+1)
-// and touches only those 4 octagons. Squares also run one step past the
-// grid (row/col -1 and rows-1/cols-1): those on an edge are HALF squares
-// touching 2 octagons, and those in a corner are QUARTER squares touching 1.
+// and touches only those 4 octagons.
 // =============================================================
 
 const Board = {
@@ -33,12 +31,10 @@ const Board = {
         spaces[id] = { id, kind: "octagon", row: r, col: c, unit: null, controller: null };
       }
     }
-    for (let r = -1; r < rows; r++) {
-      for (let c = -1; c < cols; c++) {
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
         const id = Board.squareId(r, c);
-        const edges = (r === -1 || r === rows - 1 ? 1 : 0) + (c === -1 || c === cols - 1 ? 1 : 0);
-        const shape = ["full", "half", "quarter"][edges];
-        spaces[id] = { id, kind: "square", shape, row: r, col: c, building: null };
+        spaces[id] = { id, kind: "square", row: r, col: c, building: null };
       }
     }
     return spaces;

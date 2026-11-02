@@ -4,9 +4,10 @@
 // - An octagon is controlled by the last player whose MILITARY unit stood on it
 //   (space.controller), and stays theirs until an enemy military unit steps on it.
 //   Civilian units never take control, so they can't help capture buildings.
-// - A building (on a square) belongs to space.building.owner. It's captured
-//   when another player controls a MAJORITY of the octagons around it:
-//   3 of 4 (full square), 2 of 2 (edge half square), 1 of 1 (corner quarter).
+// - A building (on a square) belongs to space.building.owner. When an enemy
+//   controls a MAJORITY (3 of 4) of the octagons around it, it's under SIEGE
+//   (space.building.siegeBy). If they still hold the majority at the start of
+//   their next turn, they capture it; if they lose it before then, the siege ends.
 // - Units deploy onto empty octagons touching one of your DEPLOYABLE buildings.
 // - Units with the build ability (the Builder) build on empty squares touching them.
 // - Capturing a building with `capturingWins` (the HQ) wins the game.
@@ -39,16 +40,34 @@ const Territory = {
     return Math.floor(Board.neighbors(state.spaces, square).length / 2) + 1;
   },
 
-  // Hands every building over to an enemy controlling enough octagons around it.
+  // The enemy currently holding a majority around a building, or null.
+  besieger(state, square) {
+    const counts = Territory.controlAround(state, square);
+    for (const [player, count] of Object.entries(counts)) {
+      if (Number(player) !== square.building.owner && count >= Territory.captureNeeded(state, square)) return Number(player);
+    }
+    return null;
+  },
+
+  // Starts or ends sieges to match who controls what right now.
   // Runs after every action and phase, which are the moments control can change.
-  captureBuildings(state) {
+  updateSieges(state) {
     for (const space of Object.values(state.spaces)) {
       if (!space.building) continue;
-      const counts = Territory.controlAround(state, space);
-      for (const [player, count] of Object.entries(counts)) {
-        if (Number(player) !== space.building.owner && count >= Territory.captureNeeded(state, space)) {
-          space.building.owner = Number(player);
-        }
+      const by = Territory.besieger(state, space);
+      if (by === null) space.building.siegeBy = null;
+      else if (space.building.siegeBy !== by) space.building.siegeBy = by;
+    }
+  },
+
+  // At the start of a player's turn: every building they're besieging and still
+  // hold the majority around becomes theirs.
+  resolveSieges(state, player) {
+    for (const space of Object.values(state.spaces)) {
+      const b = space.building;
+      if (b && b.siegeBy === player && Territory.besieger(state, space) === player) {
+        b.owner = player;
+        b.siegeBy = null;
       }
     }
   },
@@ -68,7 +87,7 @@ const Territory = {
       for (const { typeId, row, col } of buildings) {
         const square = state.spaces[Board.squareId(row, col)];
         if (!square) throw new Error(`Starting ${typeId} for player ${player + 1} is off the board (square ${row}, ${col}).`);
-        square.building = { typeId, owner: player, builtBy: player };
+        square.building = { typeId, owner: player, builtBy: player, siegeBy: null };
         for (const id of Board.neighbors(state.spaces, square)) Territory.claim(state.spaces[id], player);
       }
     });

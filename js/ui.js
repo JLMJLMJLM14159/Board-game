@@ -99,18 +99,6 @@ const UI = {
     return pts.map(([dx, dy]) => `${x + dx},${y + dy}`).join(" ");
   },
 
-  // The middle of the part of a square you can see: edge and corner squares are
-  // cut off by the board's edge, so their middle moves inwards.
-  visibleCenter(space) {
-    const { x, y } = UI.center(space);
-    const { octagonRows: rows, octagonCols: cols } = CONFIG.board;
-    const shift = CORNER * 0.42;
-    return {
-      x: x + (space.col === -1 ? shift : space.col === cols - 1 ? -shift : 0),
-      y: y + (space.row === -1 ? shift : space.row === rows - 1 ? -shift : 0),
-    };
-  },
-
   // Draws an icon from icons.js centred on (x, y), `size` units across, in `color`.
   // Falls back to the first two letters of `fallback` if there's no such icon.
   svgIcon(name, x, y, size, color, fallback, className) {
@@ -146,13 +134,6 @@ const UI = {
     const { octagonRows: rows, octagonCols: cols } = CONFIG.board;
     svg.setAttribute("viewBox", `0 0 ${cols * OCT + PAD * 2} ${rows * OCT + PAD * 2}`);
     svg.replaceChildren();
-
-    // Everything is clipped to the board's edge, which is what turns the squares
-    // on the edges into halves and the ones in the corners into quarters.
-    svg.innerHTML = `<defs><clipPath id="board-clip"><rect x="${PAD}" y="${PAD}" width="${cols * OCT}" height="${rows * OCT}"/></clipPath></defs>`;
-    const boardLayer = document.createElementNS(SVG_NS, "g");
-    boardLayer.setAttribute("clip-path", "url(#board-clip)");
-    svg.appendChild(boardLayer);
 
     const selectedSpace = selection && selection.kind === "space" ? state.spaces[selection.id] : null;
     const selectedUnit = selectedSpace && selectedSpace.unit;
@@ -210,6 +191,14 @@ const UI = {
         tint.setAttribute("class", space.kind === "octagon" ? "tint" : "tint building");
         g.appendChild(tint);
       }
+      // A besieged building gets a dashed outline in the besieger's colour.
+      if (space.building && space.building.siegeBy !== null) {
+        const ring = document.createElementNS(SVG_NS, "polygon");
+        ring.setAttribute("points", UI.shapePoints(space));
+        ring.style.stroke = state.players[space.building.siegeBy].color;
+        ring.setAttribute("class", "siege");
+        g.appendChild(ring);
+      }
 
       const { x, y } = UI.center(space);
       if (space.unit) {
@@ -227,15 +216,13 @@ const UI = {
         });
       } else if (space.building) {
         const def = BUILDING_TYPES[space.building.typeId];
-        const c = UI.visibleCenter(space);
-        const size = { full: 15, half: 11, quarter: 8 }[space.shape];
-        g.appendChild(UI.svgIcon(def.icon, c.x, c.y, size, "#0b0f14", def.name, "occupant square"));
+        g.appendChild(UI.svgIcon(def.icon, x, y, 15, "#0b0f14", def.name, "occupant square"));
       }
 
       g.addEventListener("click", () =>
         clickAction ? UI.handlers.onAction(clickAction) : UI.handlers.onSelect({ kind: "space", id: space.id })
       );
-      boardLayer.appendChild(g);
+      svg.appendChild(g);
     }
   },
 
@@ -303,6 +290,7 @@ const UI = {
       <h2>Shop</h2>
       ${pile("bases", "Bases")}
       ${pile("parts", "Parts")}
+      ${pile("attachments", "Attach.")}
       <div class="market-row"><span class="muted">Units</span>
         <div class="chips">${unitChips || `<span class="muted">none in the catalogue yet</span>`}</div>
       </div>`;
@@ -337,25 +325,39 @@ const UI = {
     const owner = state.players[unit.owner];
     const where = focus.space ? `${focus.space.row + 1}-${focus.space.col + 1}` : "(reserve)";
     const base = Armory.base(unit.weapon);
-    // Places that can be unequipped right now get a ✕ button.
+    // Places that can be unequipped / upgraded right now get ✕ / ▲ buttons.
     const unequip = {};
+    const upgrade = {};
     for (const a of Rules.getActionsOfType(state, "UNEQUIP_PART")) {
       if (a.unitId === unit.id) unequip[a.place] = a;
     }
+    for (const a of Rules.getActionsOfType(state, "UPGRADE_PART")) {
+      if (a.unitId === unit.id) upgrade[a.place] = a;
+    }
+    const support = Units.isCivilian(unit);
     const places = ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)];
     const rows = UI.weaponRows(unit.weapon)
-      .map(([label, instance], i) => `
+      .map(([label, instance], i) => {
+        // Support units only have attachment slots.
+        if (support && typeof places[i] !== "number") return "";
+        const up = upgrade[places[i]];
+        return `
         <li><span class="muted">${label}</span>
           <span>${instance ? `${UI.partHtml(instance)} <small class="muted">${UI.partStatsHtml(instance)}</small>` : `<b class="empty">empty</b>`}</span>
+          ${up ? `<button class="upgrade" data-upgrade="${places[i]}" title="${Rules.describe(up, state)}">▲${(Rules.describe(up, state).match(/\$\d+/) || [""])[0]}</button>` : "<span></span>"}
           ${unequip[places[i]] ? `<button class="unequip" data-place="${places[i]}" title="Unequip to storage">✕</button>` : "<span></span>"}
-        </li>`)
+        </li>`;
+      })
       .join("");
     root.innerHTML = `
-      <h2 style="color:${owner.color}">${Units.def(unit).name} ${where} · ${base ? `${base.name} <small class="muted">${base.weaponClass}</small>` : "Weapon"}</h2>
+      <h2 style="color:${owner.color}">${Units.def(unit).name} ${where} · ${support ? "Support attachments" : base ? `${base.name} <small class="muted">${base.weaponClass}</small>` : "Weapon"}</h2>
       <ul class="weapon-rows">${rows}</ul>`;
+    const placeOf = (value) => (/^\d+$/.test(value) ? Number(value) : value);
     root.querySelectorAll("[data-place]").forEach((el) => {
-      const place = /^\d+$/.test(el.dataset.place) ? Number(el.dataset.place) : el.dataset.place;
-      el.onclick = () => UI.handlers.onAction(unequip[place]);
+      el.onclick = () => UI.handlers.onAction(unequip[placeOf(el.dataset.place)]);
+    });
+    root.querySelectorAll("[data-upgrade]").forEach((el) => {
+      el.onclick = () => UI.handlers.onAction(upgrade[placeOf(el.dataset.upgrade)]);
     });
   },
 
@@ -441,8 +443,7 @@ const UI = {
   },
 
   spacePanel(state, space, title, body) {
-    const name = space.kind === "octagon" ? "Octagon" : { full: "Square", half: "Edge square", quarter: "Corner square" }[space.shape];
-    title.textContent = `${name} ${space.row + 1}-${space.col + 1}`;
+    title.textContent = `${space.kind === "octagon" ? "Octagon" : "Square"} ${space.row + 1}-${space.col + 1}`;
     if (space.unit) {
       body.innerHTML = UI.unitHtml(state, space.unit);
     } else if (space.building) {
@@ -454,8 +455,11 @@ const UI = {
       body.innerHTML = `
         <p><b>${def.name}</b> <span class="muted">(${state.players[b.owner].name})</span>
            ${def.deployable ? `<span class="muted">· units deploy around it</span>` : ""}</p>
-        <p><span class="muted">Enemy controls</span> ${enemyBest} of ${around} octagon${around === 1 ? "" : "s"} around it
-           <span class="muted">(${Territory.captureNeeded(state, space)} captures it)</span></p>
+        <p><span class="muted">Enemy controls</span> ${enemyBest} of ${around} octagons around it
+           <span class="muted">(holding ${Territory.captureNeeded(state, space)} until the start of their next turn captures it)</span></p>
+        ${b.siegeBy !== null
+          ? `<p style="color:${state.players[b.siegeBy].color}"><b>Under siege by ${state.players[b.siegeBy].name}</b>: captured at the start of their next turn unless the majority is broken.</p>`
+          : ""}
         ${def.description ? `<p class="muted">${def.description}</p>` : ""}`;
     } else {
       body.innerHTML = `<p class="muted">Empty ${space.kind === "octagon" ? "octagon (units go here)" : "square (buildings go here)"}.</p>`;

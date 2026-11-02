@@ -88,7 +88,9 @@ const ACTIONS = {
       if (state.players[state.currentPlayer].deploysThisTurn >= CONFIG.deploysPerTurn) {
         return no(`You can only deploy ${CONFIG.deploysPerTurn} units per turn.`);
       }
-      if (!state.players[state.currentPlayer].reserve.some((u) => u.id === a.unitId)) return no("That unit isn't in your reserve.");
+      const unit = state.players[state.currentPlayer].reserve.find((u) => u.id === a.unitId);
+      if (!unit) return no("That unit isn't in your reserve.");
+      if (unit.reservedOnTurn === state.turn) return no("It was returned to reserve this turn, so it can't redeploy until next turn.");
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "octagon") return no("Units go on octagons.");
       if (space.unit) return no("That octagon is occupied.");
@@ -101,6 +103,33 @@ const ACTIONS = {
       state.spaces[a.spaceId].unit = unit;
       state.players[state.currentPlayer].deploysThisTurn++;
       Territory.claimBy(state.spaces[a.spaceId], unit);
+    },
+  },
+
+  // Takes a deployed unit off the board into the reserve. Only next to one of your
+  // HQs / deployable buildings, during Main or Unit control. It heals to full and
+  // loses all its counters, and can't be redeployed until next turn.
+  RESERVE_UNIT: {
+    label: () => "Return to reserve (heals fully, clears counters)",
+    list(state) {
+      return Object.values(state.spaces)
+        .filter((s) => s.unit && s.unit.owner === state.currentPlayer)
+        .map((s) => ({ type: "RESERVE_UNIT", from: s.id }));
+    },
+    check(state, a) {
+      if (state.phase !== "main" && state.phase !== "unitControl") return no("Only during Main or Unit control.");
+      const from = state.spaces[a.from];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!Territory.canDeployAt(state, state.currentPlayer, from)) return no("Must be next to your HQ or a deployable building.");
+      return OK;
+    },
+    apply(state, a) {
+      const unit = state.spaces[a.from].unit;
+      state.spaces[a.from].unit = null;
+      unit.damageTaken = 0;
+      Units.clearCounters(unit);
+      unit.reservedOnTurn = state.turn;
+      state.players[state.currentPlayer].reserve.push(unit);
     },
   },
 
@@ -182,7 +211,7 @@ const ACTIONS = {
   HEAL: {
     label: (a, state) => {
       const target = state.spaces[a.target].unit;
-      return a.from === a.target ? "Heal itself to full" : `Heal ${Units.label(state, target.id)} to full`;
+      return a.from === a.target ? "Heal itself (full health, clear counters)" : `Heal ${Units.label(state, target.id)} (full health, clear counters)`;
     },
     list(state) {
       const out = [];
@@ -206,12 +235,14 @@ const ACTIONS = {
       if (from.unit.healsTaken >= heal.perTurn) return no("Already healed this turn.");
       if (!target || !target.unit || target.unit.owner !== state.currentPlayer) return no("Choose one of your units.");
       if (Board.distance(from, target) > heal.range) return no("Too far away to heal.");
-      if (target.unit.damageTaken <= 0) return no("Already at full health.");
+      if (target.unit.damageTaken <= 0 && !Units.hasCounters(target.unit)) return no("Already at full health with no counters.");
       return OK;
     },
+    // Restores full health and removes ALL counters, positive and negative.
     apply(state, a) {
       state.spaces[a.from].unit.healsTaken++;
       state.spaces[a.target].unit.damageTaken = 0;
+      Units.clearCounters(state.spaces[a.target].unit);
     },
   },
 
@@ -225,7 +256,7 @@ const ACTIONS = {
     list(state) {
       const out = [];
       for (const unit of Units.allOf(state, state.currentPlayer)) {
-        for (const pile of ["bases", "parts"]) {
+        for (const pile of Market.PILES) {
           state.players[state.currentPlayer].market[pile].forEach(({ item }, slot) => {
             if (!item) return;
             for (const place of WEAPON_PARTS[item.partId].places(unit.weapon)) {
@@ -258,7 +289,7 @@ const ACTIONS = {
     label: (a, state) => `Buy into storage for ${price(Market.price(state, Market.offer(state, a.pile, a.slot)))}`,
     list(state) {
       const out = [];
-      for (const pile of ["bases", "parts"]) {
+      for (const pile of Market.PILES) {
         state.players[state.currentPlayer].market[pile].forEach((_, slot) => out.push({ type: "STORE_PART", pile, slot }));
       }
       return out;
@@ -326,6 +357,48 @@ const ACTIONS = {
     },
   },
 
+  // Raises a part's rarity by one step, for what it would cost to buy at the new
+  // rarity. Works on a stored part ({ index }) or a fitted one ({ unitId, place },
+  // only while the unit is at base).
+  UPGRADE_PART: {
+    label(a, state) {
+      const instance = Rules.upgradeTarget(state, a);
+      const next = Rarity.get(Rarity.next(instance.rarity));
+      return `Upgrade to ${next.name} (${price(Market.price(state, { ...instance, rarity: next.id }))})`;
+    },
+    list(state) {
+      const out = state.players[state.currentPlayer].storage.map((_, index) => ({ type: "UPGRADE_PART", index }));
+      for (const unit of Units.allOf(state, state.currentPlayer)) {
+        for (const place of ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)]) {
+          out.push({ type: "UPGRADE_PART", unitId: unit.id, place });
+        }
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      if (a.unitId !== undefined) {
+        const found = Units.find(state, a.unitId);
+        if (!found || found.unit.owner !== state.currentPlayer) return no("Not your unit.");
+        if (!Units.atBase(state, found)) return no("Units can only be equipped in reserve or next to your HQ / a deployable building.");
+      }
+      const instance = Rules.upgradeTarget(state, a);
+      if (!instance) return no("Nothing there.");
+      const next = Rarity.next(instance.rarity);
+      if (!next) return no(instance.rarity ? "Already legendary." : "This part has no rarity.");
+      const cost = Market.price(state, { ...instance, rarity: next }) ?? 0;
+      if (state.players[state.currentPlayer].money < cost) return no("Not enough money.");
+      return OK;
+    },
+    apply(state, a) {
+      const instance = Rules.upgradeTarget(state, a);
+      const next = Rarity.next(instance.rarity);
+      state.players[state.currentPlayer].money -= Market.price(state, { ...instance, rarity: next }) ?? 0;
+      instance.rarity = next;
+    },
+  },
+
   // Takes a part off a unit's weapon and puts it in storage.
   // A base can only come off once nothing else is on the weapon.
   UNEQUIP_PART: {
@@ -344,6 +417,7 @@ const ACTIONS = {
       if (!phase.ok) return phase;
       const found = Units.find(state, a.unitId);
       if (!found || found.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!Units.atBase(state, found)) return no("Units can only be equipped in reserve or next to your HQ / a deployable building.");
       const weapon = found.unit.weapon;
       const instance = typeof a.place === "number" ? weapon.attachments[a.place] : weapon[a.place];
       if (!instance) return no("Nothing there.");
@@ -371,7 +445,7 @@ const ACTIONS = {
     label: (a, state) => (Market.slot(state, a.pile, a.slot).locked ? "Unlock (reroll next turn)" : "Lock (keep for a later turn)"),
     list(state) {
       const out = [];
-      for (const pile of ["bases", "parts"]) {
+      for (const pile of Market.PILES) {
         state.players[state.currentPlayer].market[pile].forEach((_, slot) => out.push({ type: "LOCK_OFFER", pile, slot }));
       }
       return out;
@@ -428,7 +502,7 @@ const ACTIONS = {
     apply(state, a) {
       state.players[state.currentPlayer].money -= Rules.buildingCost(state, a.buildingTypeId) ?? 0;
       state.spaces[a.from].unit.buildsTaken++;
-      state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer };
+      state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer, siegeBy: null };
     },
   },
 };
@@ -442,6 +516,7 @@ const Rules = {
       players: [],
       currentPlayer: 0,
       round: 1,
+      turn: 1, // counts every player's turn
       phase: PHASES[0].id,
       winner: null,
       gameLength,
@@ -468,7 +543,8 @@ const Rules = {
   checkFit(state, unitId, instance, place) {
     const found = Units.find(state, unitId);
     if (!found || found.unit.owner !== state.currentPlayer) return no("Not your unit.");
-    return Armory.canInstall(found.unit.weapon, instance.partId, place);
+    if (!Units.atBase(state, found)) return no("Units can only be equipped in reserve or next to your HQ / a deployable building.");
+    return Armory.canInstall(found.unit.weapon, instance.partId, place, found.unit);
   },
 
   // Puts the instance on the unit's weapon. Whatever was in that place goes to storage.
@@ -477,6 +553,15 @@ const Rules = {
     const replaced = WEAPON_PARTS[instance.partId].occupant(unit.weapon, place);
     if (replaced) state.players[unit.owner].storage.push(replaced);
     unit.weapon = Armory.install(unit.weapon, instance, place);
+  },
+
+  // The part instance an UPGRADE_PART action points at, or null.
+  upgradeTarget(state, a) {
+    if (a.unitId === undefined) return state.players[state.currentPlayer].storage[a.index] || null;
+    const found = Units.find(state, a.unitId);
+    if (!found) return null;
+    const weapon = found.unit.weapon;
+    return (typeof a.place === "number" ? weapon.attachments[a.place] : weapon[a.place]) || null;
   },
 
   // " in attachment 1 (replaces Red Dot)" for button labels.
@@ -525,6 +610,7 @@ const Rules = {
 
   // Built-in beginning-of-turn rule.
   startTurn(state) {
+    Territory.resolveSieges(state, state.currentPlayer);
     Units.resetTurn(state, state.currentPlayer);
     state.players[state.currentPlayer].deploysThisTurn = 0;
     state.players[state.currentPlayer].money += Rules.income(state);
@@ -548,6 +634,7 @@ const Rules = {
     if (i === PHASES.length - 1) {
       state.currentPlayer = (state.currentPlayer + 1) % state.players.length;
       if (state.currentPlayer === 0) state.round++;
+      state.turn++;
       state.phase = PHASES[0].id;
     } else {
       state.phase = PHASES[i + 1].id;
@@ -578,10 +665,10 @@ const Rules = {
   },
 
   // Things that follow automatically from any change: dead units are removed,
-  // buildings change hands, and the winner is checked.
+  // sieges start or end, and the winner is checked.
   settle(state) {
     Units.removeDead(state);
-    Territory.captureBuildings(state);
+    Territory.updateSieges(state);
     state.winner = Rules.checkWinner(state);
   },
 
@@ -611,10 +698,12 @@ const Rules = {
     );
   },
 
-  // Legal actions on one stored part: fitting it onto `unitId`, and selling it.
+  // Legal actions on one stored part: fitting it onto `unitId`, upgrading it, and selling it.
   getActionsForStored(state, index, unitId) {
     return Rules.getLegalActions(state).filter(
-      (a) => a.index === index && (a.type === "SELL_PART" || (a.type === "EQUIP_PART" && a.unitId === unitId))
+      (a) =>
+        a.index === index &&
+        (a.type === "SELL_PART" || (a.type === "UPGRADE_PART" && a.unitId === undefined) || (a.type === "EQUIP_PART" && a.unitId === unitId))
     );
   },
 

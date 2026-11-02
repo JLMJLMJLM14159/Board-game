@@ -55,4 +55,16 @@ const WEAPON_PARTS = partCatalogue([
   //   legendary: null,              // optional
   //   description: "",
   // }),
+
+  // ---- Support attachments (for civilian units only) ----
+  // new SupportAttachment({
+  //   id: "power_drill",
+  //   name: "Power Drill",
+  //   unitTypes: ["builder"],       // which support units can use it
+  //   cost: null,                   // optional own price; null = the game length's attachment price
+  //   stats: {},
+  //   rarityStats: [],              // optional
+  //   legendary: null,              // optional
+  //   description: "",
+  // }),
 ]);

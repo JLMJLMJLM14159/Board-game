@@ -2,11 +2,13 @@
 // market.js — the weapon parts offered each main phase.
 // Pure logic, no drawing.
 //
-// Each player has their own market (player.market):
+// Each player has their own market (player.market), one row per pile:
 //   {
-//     bases: [{ item: partInstance | null, locked: false }, ...],  // CONFIG.market.bases slots
-//     parts: [{ item: partInstance | null, locked: false }, ...],  // CONFIG.market.parts slots
+//     bases:       [{ item: partInstance | null, locked: false }, ...],  // weapon bases
+//     parts:       [...],   // barrels and mags
+//     attachments: [...],   // attachments for both military weapons and support units
 //   }
+// The number of slots in each row is set in CONFIG.market.
 // At the start of your main phase every slot rerolls, except LOCKED ones,
 // which keep their offer so you can buy it on a later turn.
 // A bought offer leaves its slot empty (and unlocked) until the next reroll.
@@ -14,9 +16,18 @@
 // =============================================================
 
 const Market = {
+  PILES: ["bases", "parts", "attachments"],
+
+  // Which pile a catalogue part is offered in.
+  pileOf(part) {
+    if (part instanceof WeaponBase) return "bases";
+    if (part.slot === "attachments") return "attachments";
+    return "parts";
+  },
+
   create() {
     const slots = (n) => Array.from({ length: n }, () => ({ item: null, locked: false }));
-    return { bases: slots(CONFIG.market.bases), parts: slots(CONFIG.market.parts) };
+    return Object.fromEntries(Market.PILES.map((pile) => [pile, slots(CONFIG.market[pile])]));
   },
 
   // Rerolls every unlocked slot in the current player's market. Each offer is any
@@ -25,13 +36,10 @@ const Market = {
   refresh(state) {
     const market = state.players[state.currentPlayer].market;
     const all = Object.values(WEAPON_PARTS);
-    const pools = {
-      bases: all.filter((p) => p instanceof WeaponBase),
-      parts: all.filter((p) => !(p instanceof WeaponBase)),
-    };
-    for (const pile of ["bases", "parts"]) {
+    for (const pile of Market.PILES) {
+      const pool = all.filter((p) => Market.pileOf(p) === pile);
       for (const slot of market[pile]) {
-        if (!slot.locked) slot.item = Market.draw(state, pools[pile]);
+        if (!slot.locked) slot.item = Market.draw(state, pool);
       }
     }
   },

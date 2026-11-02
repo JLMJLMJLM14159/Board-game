@@ -12,6 +12,12 @@ const Rarity = {
     return Rarity.get(id).multiplier;
   },
 
+  // The rarity one step up, or null for legendary (or no rarity).
+  next(id) {
+    const i = CONFIG.rarities.findIndex((r) => r.id === id);
+    return i >= 0 && i < CONFIG.rarities.length - 1 ? CONFIG.rarities[i + 1].id : null;
+  },
+
   // Rolls a random rarity id using the weights in CONFIG.rarities.
   roll(state) {
     return Random.weighted(state, CONFIG.rarities).id;
