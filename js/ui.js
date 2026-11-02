@@ -52,6 +52,7 @@ const UI = {
         ? `${state.players[state.winner].name} wins!`
         : `Round ${state.round} · ${player.name}'s turn`;
     turn.style.color = player.color;
+    document.getElementById("game-length").textContent = `${Rules.length(state).name} game`;
 
     document.getElementById("players").innerHTML = state.players
       .map((p, i) => `
@@ -265,7 +266,7 @@ const UI = {
     const unitChips = Object.values(UNIT_TYPES)
       .map((def) => {
         const selected = selection && selection.kind === "unitType" && selection.typeId === def.id;
-        const cost = Rules.unitCost(def.id);
+        const cost = Rules.unitCost(state, def.id);
         return `<button class="chip ${selected ? "selected" : ""}" data-unittype="${def.id}">
                   <b>${def.name}</b> <span class="muted">${cost === null ? "TBD" : `$${cost}`}</span></button>`;
       })
@@ -448,7 +449,7 @@ const UI = {
       body.innerHTML = `<p class="muted">This offer has been bought.</p>`;
       return [];
     }
-    const cost = Market.price(slot.item);
+    const cost = Market.price(state, slot.item);
     body.innerHTML =
       UI.partDetailsHtml(slot.item, ` · ${cost === null ? "price TBD" : `$${cost}`}${slot.locked ? ` · <span class="lock-note">locked</span>` : ""}`) +
       `<p class="muted">${UI.fitNote(state, focus)}</p>`;
@@ -468,6 +469,41 @@ const UI = {
       ${def.description ? `<p class="muted">${def.description}</p>` : ""}
       <p class="muted">Bought units go to your reserve (you have ${inReserve}).</p>`;
     return Rules.getActionsOfType(state, "BUY_UNIT").filter((a) => a.unitTypeId === def.id);
+  },
+
+  // ---------- New game screen: pick a game length ----------
+
+  renderNewGame(open, canCancel) {
+    const root = document.getElementById("new-game");
+    root.hidden = !open;
+    if (!open) return;
+    const unitNames = (ids) => {
+      const counts = {};
+      for (const id of ids) counts[id] = (counts[id] || 0) + 1;
+      return Object.entries(counts).map(([id, n]) => `${n} ${UNIT_TYPES[id].name}${n > 1 ? "s" : ""}`).join(", ");
+    };
+    const cards = Object.entries(CONFIG.gameLengths)
+      .map(([id, L]) => `
+        <button class="length-card ${id === CONFIG.defaultGameLength ? "recommended" : ""}" data-length="${id}">
+          <h3>${L.name}${id === CONFIG.defaultGameLength ? ` <small>recommended</small>` : ""}</h3>
+          <p>${L.description}</p>
+          <ul>
+            <li><span>Start</span> $${L.startingMoney} · ${unitNames(L.startingUnits)}</li>
+            <li><span>Units</span> ${Object.values(UNIT_TYPES).map((u) => `${u.name} $${L.unitCosts[u.id] ?? L.unitCosts[u.category]}`).join(" · ")}</li>
+            <li><span>Parts</span> base $${L.partCosts.base} · others $${L.partCosts.barrel} (+$1 per rarity)</li>
+            <li><span>Buildings</span> $${L.buildingCosts.default}</li>
+          </ul>
+        </button>`)
+      .join("");
+    root.innerHTML = `
+      <div class="new-game-box">
+        <h2>New game</h2>
+        <p class="muted">Choose how long you want the game to be. It sets the starting money, starting units and all prices.</p>
+        <div class="length-cards">${cards}</div>
+        ${canCancel ? `<button id="cancel-new-game">Cancel, keep playing</button>` : ""}
+      </div>`;
+    root.querySelectorAll("[data-length]").forEach((el) => (el.onclick = () => UI.handlers.onNewGame(el.dataset.length)));
+    if (canCancel) document.getElementById("cancel-new-game").onclick = () => UI.handlers.onNewGame(null);
   },
 
   // ---------- Reserve & storage panel (always visible) ----------

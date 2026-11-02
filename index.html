@@ -10,12 +10,13 @@
   <header>
     <h1>Board Game Prototype</h1>
     <div id="turn"></div>
+    <div id="game-length"></div>
     <div id="players"></div>
     <ol id="phases" aria-label="Turn phases"></ol>
     <div class="controls">
       <button id="undo">Undo</button>
       <button id="next-phase" class="primary">Next</button>
-      <button id="restart">Restart</button>
+      <button id="restart">New game</button>
     </div>
   </header>
 
@@ -36,6 +37,8 @@
       <section class="panel" id="weapon"></section>
     </aside>
   </main>
+
+  <div id="new-game" hidden></div>
 
   <!-- Order matters: config, then the part classes the data uses, then data, then logic, UI and main. -->
   <script src="js/config.js"></script>

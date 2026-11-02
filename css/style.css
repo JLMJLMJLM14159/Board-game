@@ -65,6 +65,46 @@ header {
 }
 header h1 { font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; font-family: var(--mono); }
 #turn { font-weight: 600; }
+#game-length { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+
+/* ---------- New game screen ---------- */
+#new-game {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 8, 12, 0.85);
+}
+#new-game[hidden] { display: none; }
+.new-game-box {
+  width: min(960px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  padding: 18px 20px;
+  text-align: center;
+}
+.new-game-box h2 { font-family: var(--mono); color: var(--accent); font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; }
+.new-game-box > p { margin: 6px 0 14px; }
+.length-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.length-card {
+  text-align: left;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.length-card:hover { border-color: var(--accent); }
+.length-card.recommended { border-color: #3b6a7a; }
+.length-card h3 { font-size: 18px; color: var(--accent); margin-bottom: 6px; }
+.length-card h3 small { font-size: 11px; color: var(--muted); font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; }
+.length-card p { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+.length-card ul { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+.length-card li { padding: 3px 0; border-top: 1px dashed var(--line); }
+.length-card li span { display: inline-block; width: 64px; color: var(--muted); }
 .controls { display: flex; gap: 6px; margin-left: auto; }
 
 #phases {

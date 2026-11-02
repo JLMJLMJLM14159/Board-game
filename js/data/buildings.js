@@ -12,7 +12,7 @@
 //     deployable: false,       // can units be deployed onto the octagons around it?
 //     buildable: true,         // can builders build it? (false for the HQ)
 //     capturingWins: false,    // does capturing it win the game? (true for the HQ)
-//     cost: null,              // null = price not decided yet (free for now)
+//     cost: null,              // optional own price; null = the game length's building price
 //     synergy: "biological",   // optional
 //     stats: {},
 //     description: "",

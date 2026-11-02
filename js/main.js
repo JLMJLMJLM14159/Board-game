@@ -4,12 +4,15 @@
 // =============================================================
 
 let state = Rules.createInitialState();
+let newGameOpen = true; // the new game screen shows first, to pick a game length
+let gameStarted = false;
 let history = [];
 let selection = null;
 let focusUnitId = null; // the unit whose weapon menu is showing
 
 function refresh() {
   UI.render(state, selection, history.length > 0, focusUnitId);
+  UI.renderNewGame(newGameOpen, gameStarted);
 }
 
 UI.init({
@@ -57,11 +60,20 @@ UI.init({
   },
 
   onRestart() {
-    if (!confirm("Restart the game?")) return;
-    state = Rules.createInitialState();
-    history = [];
-    selection = null;
-    focusUnitId = null;
+    newGameOpen = true;
+    refresh();
+  },
+
+  // Starts a new game of the chosen length, or (null) goes back to the current one.
+  onNewGame(gameLength) {
+    newGameOpen = false;
+    if (gameLength) {
+      state = Rules.createInitialState(gameLength);
+      history = [];
+      selection = null;
+      focusUnitId = null;
+      gameStarted = true;
+    }
     refresh();
   },
 });

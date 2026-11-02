@@ -32,6 +32,23 @@ js/main.js          connects rules and UI, plus undo history
 Rules files (`synergy.js`, `board.js`, `units.js`, `territory.js`, `market.js`, `parts.js`, `armory.js`, `rules.js`) never touch the screen.
 The UI files never change the game state directly. Every change goes through `Rules.applyAction`.
 
+## Game length
+
+Every new game starts with a choice of length (also from the **New game** button). Each length sets the
+starting money, the units each player starts with in reserve, and all prices (`CONFIG.gameLengths`):
+
+| | Quick | Standard | Long |
+|---|---|---|---|
+| Starting money | $10 | $5 | $3 |
+| Starting reserve | 3 Troops, Builder, Medic | 2 Troops, Builder | Troop, Builder |
+| Troop / Builder / Medic | $2 / $2 / $3 | $4 / $3 / $4 | $6 / $4 / $6 |
+| Weapon base | $2 | $3 | $4 |
+| Barrel / mag / attachment | $1 | $2 | $3 |
+| Buildings | $2 | $4 | $6 |
+
+Rarity adds $1 per step on top of a part's price. A unit, part or building can set its own `cost` in
+`js/data/` (a number, or `{ quick, standard, long }`) to override the length's price.
+
 ## Turn structure
 
 Each turn goes **Beginning → Main → Unit control → End**.
@@ -50,12 +67,11 @@ During **Main**:
   see it in the info panel and weapon menu, then fit stored parts onto it, or **sell** them for half their price, rounded down (`CONFIG.sellRate`). The ✕ next to a fitted part in the
   weapon menu unequips it to storage (a base only comes off once it's the only part).
   Putting a part where one already is **replaces** it, and the old part goes to storage. Stored parts
-  can be fitted onto any of your units later. A part's price is its `cost` plus $1 per rarity step
+  can be fitted onto any of your units later. A part's price is its game-length price plus $1 per rarity step
   (Common +0 … Legendary +4). Unbought offers reroll at your next main phase unless you **lock** them;
 - **bought units** (civilian or military) go to your reserve; **deploy** reserve units onto
   empty octagons next to your deployable buildings; civilians can **build**. Storage can only be used
-  during Main. Prices go in `CONFIG.unitCosts`; they're `null` ("price TBD", free) until decided.
-  Starting units go in `CONFIG.startingUnits`.
+  during Main. Prices and starting units come from the game length.
 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
 - **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals),

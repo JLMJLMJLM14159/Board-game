@@ -44,18 +44,18 @@ const ACTIONS = {
   // ---- Units: buy into reserve, then deploy onto the board ----
 
   BUY_UNIT: {
-    label: (a) => `Buy ${UNIT_TYPES[a.unitTypeId].name} (${price(Rules.unitCost(a.unitTypeId))})`,
+    label: (a, state) => `Buy ${UNIT_TYPES[a.unitTypeId].name} (${price(Rules.unitCost(state, a.unitTypeId))})`,
     list: () => Object.keys(UNIT_TYPES).map((unitTypeId) => ({ type: "BUY_UNIT", unitTypeId })),
     check(state, a) {
       const phase = inPhase(state, "main");
       if (!phase.ok) return phase;
       if (!UNIT_TYPES[a.unitTypeId]) return no("Unknown unit.");
-      if (state.players[state.currentPlayer].money < (Rules.unitCost(a.unitTypeId) ?? 0)) return no("Not enough money.");
+      if (state.players[state.currentPlayer].money < (Rules.unitCost(state, a.unitTypeId) ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
       const player = state.players[state.currentPlayer];
-      player.money -= Rules.unitCost(a.unitTypeId) ?? 0;
+      player.money -= Rules.unitCost(state, a.unitTypeId) ?? 0;
       player.reserve.push(Units.create(state, a.unitTypeId, state.currentPlayer));
     },
   },
@@ -217,7 +217,7 @@ const ACTIONS = {
 
   // Buys a market offer straight onto a unit's weapon.
   BUY_PART: {
-    label: (a, state) => `Buy for ${price(Market.price(Market.offer(state, a.pile, a.slot)))}${Rules.fitText(state, a)}`,
+    label: (a, state) => `Buy for ${price(Market.price(state, Market.offer(state, a.pile, a.slot)))}${Rules.fitText(state, a)}`,
     list(state) {
       const out = [];
       for (const unit of Units.allOf(state, state.currentPlayer)) {
@@ -237,12 +237,12 @@ const ACTIONS = {
       if (!phase.ok) return phase;
       const instance = Market.offer(state, a.pile, a.slot);
       if (!instance) return no("That offer has been bought.");
-      if (state.players[state.currentPlayer].money < (Market.price(instance) ?? 0)) return no("Not enough money.");
+      if (state.players[state.currentPlayer].money < (Market.price(state, instance) ?? 0)) return no("Not enough money.");
       return Rules.checkFit(state, a.unitId, instance, a.place);
     },
     apply(state, a) {
       const slot = Market.slot(state, a.pile, a.slot);
-      state.players[state.currentPlayer].money -= Market.price(slot.item) ?? 0;
+      state.players[state.currentPlayer].money -= Market.price(state, slot.item) ?? 0;
       Rules.fit(state, a.unitId, slot.item, a.place);
       slot.item = null;
       slot.locked = false;
@@ -251,7 +251,7 @@ const ACTIONS = {
 
   // Buys a market offer into your storage, to fit later.
   STORE_PART: {
-    label: (a, state) => `Buy into storage for ${price(Market.price(Market.offer(state, a.pile, a.slot)))}`,
+    label: (a, state) => `Buy into storage for ${price(Market.price(state, Market.offer(state, a.pile, a.slot)))}`,
     list(state) {
       const out = [];
       for (const pile of ["bases", "parts"]) {
@@ -264,13 +264,13 @@ const ACTIONS = {
       if (!phase.ok) return phase;
       const instance = Market.offer(state, a.pile, a.slot);
       if (!instance) return no("That offer has been bought.");
-      if (state.players[state.currentPlayer].money < (Market.price(instance) ?? 0)) return no("Not enough money.");
+      if (state.players[state.currentPlayer].money < (Market.price(state, instance) ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
       const slot = Market.slot(state, a.pile, a.slot);
       const player = state.players[state.currentPlayer];
-      player.money -= Market.price(slot.item) ?? 0;
+      player.money -= Market.price(state, slot.item) ?? 0;
       player.storage.push(slot.item);
       slot.item = null;
       slot.locked = false;
@@ -308,7 +308,7 @@ const ACTIONS = {
 
   // Sells a part from your storage.
   SELL_PART: {
-    label: (a, state) => `Sell for $${Market.sellValue(state.players[state.currentPlayer].storage[a.index])}`,
+    label: (a, state) => `Sell for $${Market.sellValue(state, state.players[state.currentPlayer].storage[a.index])}`,
     list: (state) => state.players[state.currentPlayer].storage.map((_, index) => ({ type: "SELL_PART", index })),
     check(state, a) {
       const phase = inPhase(state, "main");
@@ -318,7 +318,7 @@ const ACTIONS = {
     apply(state, a) {
       const player = state.players[state.currentPlayer];
       const [instance] = player.storage.splice(a.index, 1);
-      player.money += Market.sellValue(instance);
+      player.money += Market.sellValue(state, instance);
     },
   },
 
@@ -391,7 +391,7 @@ const ACTIONS = {
     label(a, state) {
       const def = BUILDING_TYPES[a.buildingTypeId];
       const builder = state.spaces[a.from];
-      return `Build ${def.name} (${price(def.cost ?? null)}) · ${Units.def(builder.unit).name} ${builder.row + 1}-${builder.col + 1}`;
+      return `Build ${def.name} (${price(Rules.buildingCost(state, a.buildingTypeId))}) · ${Units.def(builder.unit).name} ${builder.row + 1}-${builder.col + 1}`;
     },
     list(state) {
       const out = [];
@@ -419,11 +419,11 @@ const ACTIONS = {
       if (!space || space.kind !== "square") return no("Buildings go on squares.");
       if (!Board.squareNeighbors(state.spaces, from).includes(space.id)) return no("Must touch the builder.");
       if (space.building) return no("That square is occupied.");
-      if (state.players[state.currentPlayer].money < (def.cost ?? 0)) return no("Not enough money.");
+      if (state.players[state.currentPlayer].money < (Rules.buildingCost(state, a.buildingTypeId) ?? 0)) return no("Not enough money.");
       return OK;
     },
     apply(state, a) {
-      state.players[state.currentPlayer].money -= BUILDING_TYPES[a.buildingTypeId].cost ?? 0;
+      state.players[state.currentPlayer].money -= Rules.buildingCost(state, a.buildingTypeId) ?? 0;
       state.spaces[a.from].unit.buildsTaken++;
       state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer };
     },
@@ -431,7 +431,9 @@ const ACTIONS = {
 };
 
 const Rules = {
-  createInitialState() {
+  // `gameLength` is a key of CONFIG.gameLengths: "quick", "standard" or "long".
+  createInitialState(gameLength = CONFIG.defaultGameLength) {
+    const length = CONFIG.gameLengths[gameLength];
     const state = {
       spaces: Board.createSpaces(CONFIG.board.octagonRows, CONFIG.board.octagonCols),
       players: [],
@@ -439,14 +441,15 @@ const Rules = {
       round: 1,
       phase: PHASES[0].id,
       winner: null,
+      gameLength,
       rngState: Random.newSeed(),
       nextUnitId: 1,
     };
     state.players = CONFIG.players.map((p, i) => ({
       name: p.name,
       color: p.color,
-      money: CONFIG.startingMoney,
-      reserve: CONFIG.startingUnits.map((typeId) => Units.create(state, typeId, i)),
+      money: length.startingMoney,
+      reserve: length.startingUnits.map((typeId) => Units.create(state, typeId, i)),
       market: Market.create(),
       storage: [], // part instances bought or replaced, waiting to be fitted
     }));
@@ -483,10 +486,31 @@ const Rules = {
 
   // ---------- Money ----------
 
-  // Price to buy a unit, or null if not decided yet.
-  unitCost(unitTypeId) {
+  // The settings for this game's length (CONFIG.gameLengths).
+  length(state) {
+    return CONFIG.gameLengths[state.gameLength];
+  },
+
+  // An item's price in this game: its own `cost` if it has one (a number, or one
+  // per game length), otherwise `fallback` from the game length's price list.
+  priceFor(state, item, fallback) {
+    const own = item.cost;
+    if (typeof own === "number") return own;
+    if (own && typeof own[state.gameLength] === "number") return own[state.gameLength];
+    return fallback ?? null;
+  },
+
+  // Price to buy a unit, or null if none is set.
+  unitCost(state, unitTypeId) {
     const unit = UNIT_TYPES[unitTypeId];
-    return unit.cost ?? CONFIG.unitCosts[unit.category] ?? null;
+    const costs = Rules.length(state).unitCosts;
+    return Rules.priceFor(state, unit, costs[unitTypeId] ?? costs[unit.category]);
+  },
+
+  // Price to build a building, or null if none is set.
+  buildingCost(state, buildingTypeId) {
+    const costs = Rules.length(state).buildingCosts;
+    return Rules.priceFor(state, BUILDING_TYPES[buildingTypeId], costs[buildingTypeId] ?? costs.default);
   },
 
   // Money the current player gains at the beginning of their turn:

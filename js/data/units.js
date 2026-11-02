@@ -8,7 +8,8 @@
 //     name: "Scout Drone",
 //     category: "military",    // "military" units take control of octagons; "civilian" ones don't
 //     icon: "troop",           // board icon, from js/icons.js
-//     cost: null,              // optional: overrides CONFIG.unitCosts for this unit
+//     cost: null,              // optional own price (number, or { quick, standard, long });
+//                              // otherwise CONFIG.gameLengths[...].unitCosts
 //     synergy: "electrical",   // optional
 //     stats: {                 // weapons can raise or lower any of these
 //       health: 5,             // max health (needed: a unit at 0 health is removed)

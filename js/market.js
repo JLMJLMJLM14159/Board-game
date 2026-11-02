@@ -51,16 +51,18 @@ const Market = {
     return s ? s.item : null;
   },
 
-  // Price of an offer: the part's cost plus its rarity's extra cost ($1 per step up).
-  // null while the part's cost isn't decided yet.
-  price(instance) {
-    const cost = WEAPON_PARTS[instance.partId].cost;
+  // Price of an offer: the part's price for this game length, plus its
+  // rarity's extra cost ($1 per step up). null if no price is set anywhere.
+  price(state, instance) {
+    const part = WEAPON_PARTS[instance.partId];
+    const kind = part.slot === "attachments" ? "attachment" : part.slot;
+    const cost = Rules.priceFor(state, part, Rules.length(state).partCosts[kind]);
     if (cost === null) return null;
     return cost + (instance.rarity ? Rarity.get(instance.rarity).extraCost : 0);
   },
 
   // Money back for selling a part: CONFIG.sellRate of its price, rounded down.
-  sellValue(instance) {
-    return Math.floor((Market.price(instance) ?? 0) * CONFIG.sellRate);
+  sellValue(state, instance) {
+    return Math.floor((Market.price(state, instance) ?? 0) * CONFIG.sellRate);
   },
 };

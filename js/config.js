@@ -31,10 +31,45 @@ const CONFIG = {
   // How many of the 4 octagons around a building an enemy must control to capture it.
   captureThreshold: 3,
 
-  // ---- Money ----
-  // PLACEHOLDER: starting money for each player.
-  startingMoney: 0,
+  // ---- Game lengths ----
+  // Chosen when starting a new game. Each sets the starting money, the units
+  // each player starts with in reserve, and the prices of everything.
+  // A unit, part or building with its own `cost` in js/data/ uses that instead
+  // (a number for every length, or e.g. { quick: 2, standard: 4, long: 6 }).
+  // Unit prices: by unit id, then by category for units not listed.
+  // Part prices: by kind; rarity then adds its extraCost ($1 per step) on top.
+  gameLengths: {
+    quick: {
+      name: "Quick",
+      description: "Cheap units and parts and lots of starting money: armies grow fast and fights start early.",
+      startingMoney: 10,
+      startingUnits: ["troop", "troop", "troop", "builder", "medic"],
+      unitCosts: { troop: 2, builder: 2, medic: 3, military: 2, civilian: 2 },
+      partCosts: { base: 2, barrel: 1, mag: 1, attachment: 1 },
+      buildingCosts: { default: 2 },
+    },
+    standard: {
+      name: "Standard",
+      description: "The intended pace: a fully kitted weapon costs about three turns of early income.",
+      startingMoney: 5,
+      startingUnits: ["troop", "troop", "builder"],
+      unitCosts: { troop: 4, builder: 3, medic: 4, military: 4, civilian: 3 },
+      partCosts: { base: 3, barrel: 2, mag: 2, attachment: 2 },
+      buildingCosts: { default: 4 },
+    },
+    long: {
+      name: "Long",
+      description: "Expensive everything and a small start: slow build-ups where every purchase matters.",
+      startingMoney: 3,
+      startingUnits: ["troop", "builder"],
+      unitCosts: { troop: 6, builder: 4, medic: 6, military: 6, civilian: 4 },
+      partCosts: { base: 4, barrel: 3, mag: 3, attachment: 3 },
+      buildingCosts: { default: 6 },
+    },
+  },
+  defaultGameLength: "standard",
 
+  // ---- Money ----
   // Money gained at the beginning of each of your turns:
   // base + perReserveUnit for every unit you have that isn't deployed.
   income: { base: 1, perReserveUnit: 1 },
@@ -51,18 +86,6 @@ const CONFIG = {
   // ---- Units ----
   // Every unit in data/units.js belongs to one of these categories.
   unitCategories: ["civilian", "military"],
-
-  // Units each player starts with, in their reserve (not deployed). List unit ids,
-  // repeats allowed, e.g. ["scout_drone", "scout_drone", "medic"].
-  // PLACEHOLDER: decide once units exist.
-  startingUnits: [],
-
-  // Price to buy a unit, by category. A unit can override it with its own `cost`.
-  // null = not decided yet; buying is free until you set a number.
-  unitCosts: {
-    civilian: null,
-    military: null,
-  },
 
   // ---- Weapons ----
   // Every unit carries one weapon of its own.

@@ -31,7 +31,7 @@ class WeaponPart {
     this.id = id;
     this.name = name;
     this.synergy = synergy;
-    this.cost = cost; // market price; null = not decided yet (free for now)
+    this.cost = cost; // own market price (number, or one per game length); null = use the game length's price
     this.stats = stats;
     this.description = description;
   }
