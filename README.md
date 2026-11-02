@@ -26,6 +26,7 @@ js/armory.js        working with a whole weapon (each unit has one)
 js/rules.js         game state + every action the game allows
 js/ui.js            draws everything and reports clicks
 js/icons.js         simple board icons for units and buildings
+js/events.js        the trigger system: every event, and who hears it
 js/main.js          connects rules and UI, plus undo history
 ```
 
@@ -52,9 +53,7 @@ Rarity adds $1 per step on top of a part's price. A unit, part or building can s
 ## Turn structure
 
 Each turn goes **Beginning → Main → Unit control → End**.
-Beginning and End are automatic: they run any triggers ("at the beginning/end of each turn...")
-and then skip straight on. Triggers fire on **both** players' turns. A unit or building gets a trigger by adding
-`triggers: { beginning(state, space) {...} }` to its entry in `js/data/`.
+Beginning and End are automatic: they fire their events (`turnStart`, `turnEnd`) and then skip straight on.
 
 At the **Beginning** of your turn you gain $1 plus $1 for every unit in your reserve (not deployed).
 
@@ -76,7 +75,7 @@ During **Main**:
   empty octagons next to your deployable buildings, up to 2 per turn (`CONFIG.deploysPerTurn`); civilians can **build**. Storage can only be used
   during Main. Prices and starting units come from the game length.
 
-A deployed unit next to your HQ / a deployable building can **return to reserve** (during Main or Unit control):
+A deployed unit next to your HQ / a deployable building can **return to reserve** (during Main):
 it heals to full and loses all its counters, and can't be redeployed until next turn.
 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
@@ -106,11 +105,24 @@ Military units carry a full weapon. **Support (civilian) units** only have 2 att
 Their stats are starting guesses in `js/data/units.js`. Abilities are set per unit type (`abilities: { build, heal }`),
 and each unit type has a board icon (`icon`, drawn from `js/icons.js`).
 
+## Triggers (events)
+
+Every rule reports what happened as an **event** (`js/events.js` lists them all): turn start/end, phase start,
+income, units bought / deployed / reserved / moved / shooting / damaged / healed / dying, counters changing or
+being cleared, parts bought / equipped / unequipped / upgraded / sold, offers locked, buildings built, territory
+claimed, sieges starting / ending, buildings captured and the game being won.
+
+Any unit type, building type or weapon part can react with `triggers: { eventName(ctx) {...} }` (or `any(ctx)`
+for every event). There's only one version of each event: a trigger works out what it means for its **owner**
+as it fires, using `ctx.mine(...)`, `ctx.ownersTurn` and `ctx.isSelf(...)`. For example, "at the start of your
+opponent's turn" is `turnStart` with `!ctx.ownersTurn`, and "when an enemy unit dies" is `unitDied` with
+`!ctx.mine(ctx.unit)`. Triggers can set off other triggers, up to `CONFIG.maxTriggerDepth` deep.
+
 ## Element counters
 
 Units can hold **positive and negative counters for each element** (thermal, electrical, biological), e.g.
 3 positive electrical. Positive and negative counters of the **same** element cancel out, so each element is
-stored as one net number (`unit.counters`, changed with `Units.addCounters(unit, element, amount)`). They're shown
+stored as one net number (`unit.counters`, changed with `Units.addCounters(state, unit, element, amount)`). They're shown
 above the unit on the board and in the info panel. What gives or uses counters will come from weapon parts.
 
 ## Territory and buildings

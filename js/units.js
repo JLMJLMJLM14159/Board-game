@@ -93,9 +93,12 @@ const Units = {
 
   // Gives a unit `amount` counters of an element: positive numbers add positive
   // counters, negative numbers add negative ones (cancelling positives first).
-  addCounters(unit, element, amount) {
+  addCounters(state, unit, element, amount) {
     if (!(element in unit.counters)) throw new Error(`Unknown element "${element}".`);
+    if (amount === 0) return;
+    const before = unit.counters[element];
     unit.counters[element] += amount;
+    Events.emit(state, "countersChanged", { player: state.currentPlayer, unit, element, amount, before, after: unit.counters[element] });
   },
 
   // Net counters of one element: e.g. 3 = three positive, -1 = one negative, 0 = none.
@@ -108,8 +111,24 @@ const Units = {
   },
 
   // Removes every counter, positive and negative.
-  clearCounters(unit) {
+  clearCounters(state, unit) {
+    if (!Units.hasCounters(unit)) return;
+    const before = { ...unit.counters };
     for (const element in unit.counters) unit.counters[element] = 0;
+    Events.emit(state, "countersCleared", { player: state.currentPlayer, unit, before });
+  },
+
+  // Deals damage to a unit. `source` is the unit that caused it, if any.
+  dealDamage(state, unit, amount, source = null) {
+    if (amount <= 0) return;
+    unit.damageTaken += amount;
+    Events.emit(state, "unitDamaged", { player: state.currentPlayer, unit, amount, source });
+  },
+
+  // Restores a unit to full health and removes all its counters (Medics, going to reserve).
+  restore(state, unit) {
+    unit.damageTaken = 0;
+    Units.clearCounters(state, unit);
   },
 
   // Is the unit "at base", where it can be equipped or returned to reserve?
@@ -195,7 +214,11 @@ const Units = {
   // damage or from its max health dropping.
   removeDead(state) {
     for (const space of Object.values(state.spaces)) {
-      if (space.unit && Units.health(state, space.unit) <= 0) space.unit = null;
+      const unit = space.unit;
+      if (!unit || Units.health(state, unit) > 0) continue;
+      space.unit = null;
+      // The dead unit (and its parts) still hear about their own death.
+      Events.emit(state, "unitDied", { player: state.currentPlayer, unit, space }, Events.unitListeners(unit, space));
     }
   },
 };

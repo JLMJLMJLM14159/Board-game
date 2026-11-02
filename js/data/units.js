@@ -24,11 +24,11 @@
 //     abilities: {},
 //     description: "",
 //
-//     // Optional: effects that happen automatically at the beginning/end of EACH
-//     // turn (both players'). state.currentPlayer says whose turn it is.
+//     // Optional: reactions to anything that happens. See js/events.js for every
+//     // event and what ctx holds. Triggers judge events relative to their owner:
 //     triggers: {
-//       beginning(state, space) {},
-//       end(state, space) {},
+//       turnStart(ctx) { if (ctx.ownersTurn) { /* start of YOUR turn */ } },
+//       unitDied(ctx)  { if (!ctx.mine(ctx.unit)) { /* an ENEMY unit died */ } },
 //     },
 //   },
 //

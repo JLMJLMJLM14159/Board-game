@@ -30,7 +30,7 @@
 // =============================================================
 
 class WeaponPart {
-  constructor({ id, name, synergy = null, cost = null, stats = {}, description = "" }) {
+  constructor({ id, name, synergy = null, cost = null, stats = {}, description = "", triggers = {} }) {
     if (!id || !name) throw new Error("Every weapon part needs an id and a name.");
     if (synergy && !Synergy.get(synergy)) throw new Error(`${id}: unknown synergy "${synergy}".`);
     this.id = id;
@@ -39,6 +39,7 @@ class WeaponPart {
     this.cost = cost; // own market price (number, or one per game length); null = use the game length's price
     this.stats = stats;
     this.description = description;
+    this.triggers = triggers; // reacts to game events, see js/events.js
   }
 
   // Which key of the weapon this part goes in. Each subclass sets this.
@@ -64,7 +65,7 @@ class WeaponPart {
   // The details that apply to one copy of this part. CustomPart swaps in
   // the separate legendary version when there is one.
   versionFor(instance) {
-    return { name: this.name, stats: this.stats, description: this.description, rarityStats: [] };
+    return { name: this.name, stats: this.stats, description: this.description, rarityStats: [], triggers: this.triggers };
   }
 
   nameFor(instance) {
@@ -162,9 +163,10 @@ class CustomPart extends WeaponPart {
         stats: this.legendary.stats ?? this.stats,
         description: this.legendary.description ?? this.description,
         rarityStats: [], // the legendary version's numbers are already final
+        triggers: this.legendary.triggers ?? this.triggers,
       };
     }
-    return { name: this.name, stats: this.stats, description: this.description, rarityStats: this.rarityStats };
+    return { name: this.name, stats: this.stats, description: this.description, rarityStats: this.rarityStats, triggers: this.triggers };
   }
 
   // Needs a base, and one of an allowed class.

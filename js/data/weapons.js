@@ -3,6 +3,9 @@
 // Intentionally EMPTY for now. Add parts to the list using the
 // templates below. The classes are defined in js/parts.js.
 //
+// Any part (and its legendary version) can have `triggers: { eventName(ctx) {...} }`
+// that fire while it's fitted to a unit; ctx.self is that unit. See js/events.js.
+//
 // Don't give parts a rarity here: each copy of a barrel, mag or
 // attachment gets a random rarity (common -> legendary) when it
 // appears in the market. Rarity only multiplies the stats you list in

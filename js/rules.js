@@ -21,7 +21,7 @@ const PHASES = [
   { id: "beginning",   name: "Beginning",    auto: true,  onEnter: (state) => Rules.startTurn(state) },
   { id: "main",        name: "Main",         auto: false, onEnter: (state) => Market.refresh(state) },
   { id: "unitControl", name: "Unit control", auto: false },
-  { id: "end",         name: "End",          auto: true },
+  { id: "end",         name: "End",          auto: true,  onEnter: (state) => Events.emit(state, "turnEnd", { player: state.currentPlayer }) },
 ];
 
 const OK = { ok: true };
@@ -56,7 +56,9 @@ const ACTIONS = {
     apply(state, a) {
       const player = state.players[state.currentPlayer];
       player.money -= Rules.unitCost(state, a.unitTypeId) ?? 0;
-      player.reserve.push(Units.create(state, a.unitTypeId, state.currentPlayer));
+      const unit = Units.create(state, a.unitTypeId, state.currentPlayer);
+      player.reserve.push(unit);
+      Events.emit(state, "unitBought", { player: state.currentPlayer, unit });
     },
   },
 
@@ -100,15 +102,17 @@ const ACTIONS = {
     apply(state, a) {
       const reserve = state.players[state.currentPlayer].reserve;
       const [unit] = reserve.splice(reserve.findIndex((u) => u.id === a.unitId), 1);
-      state.spaces[a.spaceId].unit = unit;
+      const space = state.spaces[a.spaceId];
+      space.unit = unit;
       state.players[state.currentPlayer].deploysThisTurn++;
-      Territory.claimBy(state.spaces[a.spaceId], unit);
+      Events.emit(state, "unitDeployed", { player: state.currentPlayer, unit, space });
+      Territory.claimBy(state, space, unit);
     },
   },
 
   // Takes a deployed unit off the board into the reserve. Only next to one of your
-  // HQs / deployable buildings, during Main or Unit control. It heals to full and
-  // loses all its counters, and can't be redeployed until next turn.
+  // HQs / deployable buildings, during Main. It heals to full and loses all its
+  // counters, and can't be redeployed until next turn.
   RESERVE_UNIT: {
     label: () => "Return to reserve (heals fully, clears counters)",
     list(state) {
@@ -117,19 +121,21 @@ const ACTIONS = {
         .map((s) => ({ type: "RESERVE_UNIT", from: s.id }));
     },
     check(state, a) {
-      if (state.phase !== "main" && state.phase !== "unitControl") return no("Only during Main or Unit control.");
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
       const from = state.spaces[a.from];
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
       if (!Territory.canDeployAt(state, state.currentPlayer, from)) return no("Must be next to your HQ or a deployable building.");
       return OK;
     },
     apply(state, a) {
-      const unit = state.spaces[a.from].unit;
-      state.spaces[a.from].unit = null;
-      unit.damageTaken = 0;
-      Units.clearCounters(unit);
+      const space = state.spaces[a.from];
+      const unit = space.unit;
+      space.unit = null;
       unit.reservedOnTurn = state.turn;
       state.players[state.currentPlayer].reserve.push(unit);
+      Units.restore(state, unit);
+      Events.emit(state, "unitReserved", { player: state.currentPlayer, unit, space });
     },
   },
 
@@ -165,7 +171,8 @@ const ACTIONS = {
       unit.stepsTaken++;
       state.spaces[a.to].unit = unit;
       state.spaces[a.from].unit = null;
-      Territory.claimBy(state.spaces[a.to], unit);
+      Events.emit(state, "unitMoved", { player: state.currentPlayer, unit, from: state.spaces[a.from], to: state.spaces[a.to] });
+      Territory.claimBy(state, state.spaces[a.to], unit);
     },
   },
 
@@ -200,8 +207,11 @@ const ACTIONS = {
     },
     apply(state, a) {
       const shooter = state.spaces[a.from].unit;
+      const target = state.spaces[a.target].unit;
+      const damage = Units.damage(state, shooter);
       shooter.shotsTaken++;
-      state.spaces[a.target].unit.damageTaken += Units.damage(state, shooter);
+      Events.emit(state, "unitShot", { player: state.currentPlayer, unit: shooter, target, damage });
+      Units.dealDamage(state, target, damage, shooter);
     },
   },
 
@@ -240,9 +250,11 @@ const ACTIONS = {
     },
     // Restores full health and removes ALL counters, positive and negative.
     apply(state, a) {
-      state.spaces[a.from].unit.healsTaken++;
-      state.spaces[a.target].unit.damageTaken = 0;
-      Units.clearCounters(state.spaces[a.target].unit);
+      const healer = state.spaces[a.from].unit;
+      const unit = state.spaces[a.target].unit;
+      healer.healsTaken++;
+      Units.restore(state, unit);
+      Events.emit(state, "unitHealed", { player: state.currentPlayer, unit, healer });
     },
   },
 
@@ -277,10 +289,12 @@ const ACTIONS = {
     },
     apply(state, a) {
       const slot = Market.slot(state, a.pile, a.slot);
-      state.players[state.currentPlayer].money -= Market.price(state, slot.item) ?? 0;
-      Rules.fit(state, a.unitId, slot.item, a.place);
+      const part = slot.item;
+      state.players[state.currentPlayer].money -= Market.price(state, part) ?? 0;
       slot.item = null;
       slot.locked = false;
+      Events.emit(state, "partBought", { player: state.currentPlayer, part, unit: Units.find(state, a.unitId).unit });
+      Rules.fit(state, a.unitId, part, a.place);
     },
   },
 
@@ -305,10 +319,12 @@ const ACTIONS = {
     apply(state, a) {
       const slot = Market.slot(state, a.pile, a.slot);
       const player = state.players[state.currentPlayer];
-      player.money -= Market.price(state, slot.item) ?? 0;
-      player.storage.push(slot.item);
+      const part = slot.item;
+      player.money -= Market.price(state, part) ?? 0;
+      player.storage.push(part);
       slot.item = null;
       slot.locked = false;
+      Events.emit(state, "partBought", { player: state.currentPlayer, part, unit: null });
     },
   },
 
@@ -352,8 +368,10 @@ const ACTIONS = {
     },
     apply(state, a) {
       const player = state.players[state.currentPlayer];
-      const [instance] = player.storage.splice(a.index, 1);
-      player.money += Market.sellValue(state, instance);
+      const [part] = player.storage.splice(a.index, 1);
+      const amount = Market.sellValue(state, part);
+      player.money += amount;
+      Events.emit(state, "partSold", { player: state.currentPlayer, part, amount });
     },
   },
 
@@ -395,7 +413,10 @@ const ACTIONS = {
       const instance = Rules.upgradeTarget(state, a);
       const next = Rarity.next(instance.rarity);
       state.players[state.currentPlayer].money -= Market.price(state, { ...instance, rarity: next }) ?? 0;
+      const from = instance.rarity;
       instance.rarity = next;
+      const unit = a.unitId !== undefined ? Units.find(state, a.unitId).unit : null;
+      Events.emit(state, "partUpgraded", { player: state.currentPlayer, part: instance, from, to: next, unit });
     },
   },
 
@@ -437,6 +458,7 @@ const ACTIONS = {
       }
       unit.weapon = weapon;
       state.players[state.currentPlayer].storage.push(instance);
+      Events.emit(state, "partUnequipped", { player: state.currentPlayer, part: instance, unit });
     },
   },
 
@@ -458,6 +480,7 @@ const ACTIONS = {
     apply(state, a) {
       const slot = Market.slot(state, a.pile, a.slot);
       slot.locked = !slot.locked;
+      Events.emit(state, "offerLocked", { player: state.currentPlayer, part: slot.item, locked: slot.locked });
     },
   },
 
@@ -501,8 +524,11 @@ const ACTIONS = {
     },
     apply(state, a) {
       state.players[state.currentPlayer].money -= Rules.buildingCost(state, a.buildingTypeId) ?? 0;
-      state.spaces[a.from].unit.buildsTaken++;
-      state.spaces[a.spaceId].building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer, siegeBy: null };
+      const builder = state.spaces[a.from].unit;
+      builder.buildsTaken++;
+      const space = state.spaces[a.spaceId];
+      space.building = { typeId: a.buildingTypeId, owner: state.currentPlayer, builtBy: state.currentPlayer, siegeBy: null };
+      Events.emit(state, "buildingBuilt", { player: state.currentPlayer, building: space.building, space, unit: builder });
     },
   },
 };
@@ -553,6 +579,8 @@ const Rules = {
     const replaced = WEAPON_PARTS[instance.partId].occupant(unit.weapon, place);
     if (replaced) state.players[unit.owner].storage.push(replaced);
     unit.weapon = Armory.install(unit.weapon, instance, place);
+    if (replaced) Events.emit(state, "partUnequipped", { player: state.currentPlayer, part: replaced, unit });
+    Events.emit(state, "partEquipped", { player: state.currentPlayer, part: instance, unit, replaced: replaced || null });
   },
 
   // The part instance an UPGRADE_PART action points at, or null.
@@ -610,10 +638,14 @@ const Rules = {
 
   // Built-in beginning-of-turn rule.
   startTurn(state) {
-    Territory.resolveSieges(state, state.currentPlayer);
-    Units.resetTurn(state, state.currentPlayer);
-    state.players[state.currentPlayer].deploysThisTurn = 0;
-    state.players[state.currentPlayer].money += Rules.income(state);
+    const player = state.currentPlayer;
+    Territory.resolveSieges(state, player);
+    Units.resetTurn(state, player);
+    state.players[player].deploysThisTurn = 0;
+    const amount = Rules.income(state);
+    state.players[player].money += amount;
+    Events.emit(state, "incomeGained", { player, amount });
+    Events.emit(state, "turnStart", { player });
   },
 
   // ---------- Turn phases ----------
@@ -642,26 +674,14 @@ const Rules = {
     Rules.enterPhase(state);
   },
 
+  // Runs a phase's built-in rule (which emits turnStart / turnEnd), tells
+  // triggers the phase has started, and skips it if it's automatic.
   enterPhase(state) {
     const phase = PHASES[Rules.phaseIndex(state)];
     if (phase.onEnter) phase.onEnter(state);
-    Rules.runPhaseTriggers(state, state.phase);
-    if (phase.auto && state.winner === null) Rules.advancePhase(state);
-  },
-
-  // Runs every "at the beginning/end of each turn" effect. Any unit or building
-  // type with `triggers: { <phaseId>(state, space) {...} }` in data/ reacts here.
-  // Every piece triggers on EVERY player's turn; state.currentPlayer says whose
-  // turn it is if a trigger only cares about one side.
-  runPhaseTriggers(state, phaseId) {
-    for (const space of Object.values(state.spaces)) {
-      const piece = space.unit || space.building;
-      if (!piece) continue;
-      const def = space.unit ? UNIT_TYPES[piece.typeId] : BUILDING_TYPES[piece.typeId];
-      const trigger = def && def.triggers && def.triggers[phaseId];
-      if (trigger) trigger(state, space);
-    }
+    Events.emit(state, "phaseStart", { player: state.currentPlayer, phase: phase.id });
     Rules.settle(state);
+    if (phase.auto && state.winner === null) Rules.advancePhase(state);
   },
 
   // Things that follow automatically from any change: dead units are removed,
@@ -669,7 +689,9 @@ const Rules = {
   settle(state) {
     Units.removeDead(state);
     Territory.updateSieges(state);
+    const before = state.winner;
     state.winner = Rules.checkWinner(state);
+    if (before === null && state.winner !== null) Events.emit(state, "gameWon", { player: state.winner });
   },
 
   // ---------- Actions ----------

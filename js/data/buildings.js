@@ -17,11 +17,11 @@
 //     stats: {},
 //     description: "",
 //
-//     // Optional: effects that happen automatically at the beginning/end of EACH
-//     // turn (both players'), e.g. healing nearby units. Change `state` directly.
+//     // Optional: reactions to anything that happens (see js/events.js), e.g. healing
+//     // nearby units at the start of its owner's turn:
 //     triggers: {
-//       beginning(state, space) {},
-//       end(state, space) {},
+//       turnStart(ctx) { if (ctx.ownersTurn) { /* ... */ } },
+//       buildingCaptured(ctx) { if (ctx.isSelf(ctx.building)) { /* this one was captured */ } },
 //     },
 //   },
 const BUILDING_TYPES = {

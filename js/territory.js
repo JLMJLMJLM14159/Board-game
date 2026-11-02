@@ -20,8 +20,11 @@ const Territory = {
   },
 
   // A unit arriving on an octagon claims it, unless it's a civilian.
-  claimBy(space, unit) {
-    if (!Units.isCivilian(unit)) Territory.claim(space, unit.owner);
+  claimBy(state, space, unit) {
+    if (Units.isCivilian(unit) || space.controller === unit.owner) return;
+    const from = space.controller;
+    Territory.claim(space, unit.owner);
+    Events.emit(state, "territoryClaimed", { player: unit.owner, space, from, unit });
   },
 
   // How many of the octagons around a square each player controls,
@@ -54,9 +57,18 @@ const Territory = {
   updateSieges(state) {
     for (const space of Object.values(state.spaces)) {
       if (!space.building) continue;
+      const building = space.building;
       const by = Territory.besieger(state, space);
-      if (by === null) space.building.siegeBy = null;
-      else if (space.building.siegeBy !== by) space.building.siegeBy = by;
+      if (building.siegeBy === by) continue;
+      if (building.siegeBy !== null) {
+        const ended = building.siegeBy;
+        building.siegeBy = null;
+        Events.emit(state, "siegeEnded", { player: ended, building, space });
+      }
+      if (by !== null) {
+        building.siegeBy = by;
+        Events.emit(state, "siegeStarted", { player: by, building, space });
+      }
     }
   },
 
@@ -66,8 +78,10 @@ const Territory = {
     for (const space of Object.values(state.spaces)) {
       const b = space.building;
       if (b && b.siegeBy === player && Territory.besieger(state, space) === player) {
+        const from = b.owner;
         b.owner = player;
         b.siegeBy = null;
+        Events.emit(state, "buildingCaptured", { player, building: b, space, from });
       }
     }
   },

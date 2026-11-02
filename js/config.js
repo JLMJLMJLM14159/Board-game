@@ -34,6 +34,9 @@ const CONFIG = {
   // How many units each player can deploy per turn.
   deploysPerTurn: 2,
 
+  // Safety limit on triggers setting off other triggers (see js/events.js).
+  maxTriggerDepth: 20,
+
   // ---- Game lengths ----
   // Chosen when starting a new game. Each sets the starting money, the units
   // each player starts with in reserve, and the prices of everything.
