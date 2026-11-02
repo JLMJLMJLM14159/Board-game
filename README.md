@@ -81,12 +81,22 @@ it heals to full and loses all its counters, and can't be redeployed until next 
 During **Unit control** each of your units can do these in any order (e.g. move, shoot, move again):
 - **move** up to its `movement` value, one step at a time, only into octagons sharing a side (no diagonals),
   never onto or through other units;
-- **shoot** enemy units within its `range` (counted without diagonals, so a diagonal neighbour is 2 away),
-  up to `shots` times per turn, each dealing its `damage`. Only octagons can be targeted.
+- **shoot** units within its `range` (counted without diagonals, so a diagonal neighbour is 2 away), up to
+  `shots` times per turn. Needs a weapon base. Nothing blocks shots. Only octagons can be targeted;
+- **melee** a unit on an adjacent octagon once per turn (`CONFIG.meleePerTurn`), for its `melee` damage.
+  Every unit can melee, with or without a weapon.
+
+Shooting or hitting a friendly unit's tile uses the attack but does nothing (no damage, no damage triggers);
+it's only offered as a button, so clicking your own units still selects them.
 
 Every unit carries **its own weapon** (base, barrel, mag, 2 attachments), shown in the weapon menu when
-you select the unit. A unit's stats (`health`, `movement`, `range`, `damage`, `shots`) come from its type in
-`js/data/units.js`, plus or minus the same-named stats of the parts on its weapon. The game stores damage taken, not current
+you select the unit. A unit's type gives its default stats (`health`, `movement`, `melee`). The weapon **base**
+gives the unit's starting stats (e.g. `range`, `damage`, `shots`), replacing the defaults for any it lists, and
+every other part adds to or subtracts from them. A shot's damage can be split into types: `damage` (untyped)
+plus `thermalDamage`, `electricalDamage` and `biologicalDamage`. Triggers can deal typed damage too
+(`Units.dealDamage(state, unit, amount, source, type)`). A unit can't carry two of the same attachment.
+
+When a unit dies, its parts go back to its owner's storage **one rarity lower**; Common parts are destroyed. The game stores damage taken, not current
 health, so current health = max health − damage taken: when max health changes, current health changes by the
 same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
 can hit (red), then click the space to do it.
@@ -147,16 +157,17 @@ Player 1's **HQ** is on the middle square of the back row at the bottom, Player 
 
 ```
 WeaponPart                 any part: id, name, synergy, stats
-├── WeaponBase             the weapon's class (pistol, ar...). No rarity.
+├── WeaponBase             the unit's starting weapon stats. No rarity.
 └── CustomPart             random rarity, optional legendary version, optional class restriction
     ├── Barrel             one per weapon
     ├── Mag                one per weapon
-    ├── Attachment         2 per weapon, each a different type
-    └── SupportAttachment  for support units only; lists which unit types it fits
+    └── Attachment         2 per weapon, never two of the same
+        └── SupportAttachment  for support units only; lists which unit types it fits
 ```
 
 Each class holds its own rules (`places`, `canInstallOn`, `installOn`, `createInstance`, `statsFor`).
 A part goes into a place (`base`, `barrel`, `mag`, or attachment slot `0`/`1`); a filled place is replaced.
+Parts only add to or subtract from stats.
 A new kind of part is a new subclass. Parts in play are stored as plain `{ partId, rarity }`
 data so the game state can be copied for undo.
 

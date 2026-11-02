@@ -176,18 +176,24 @@ const ACTIONS = {
     },
   },
 
-  // Shoot an enemy unit within range (counted without diagonals). Only
-  // octagons can be targeted, so buildings can't be shot.
+  // Shoot a unit within range (counted without diagonals). Needs a weapon base.
+  // Only octagons can be targeted, so buildings can't be shot. Shooting a
+  // friendly unit's tile uses the shot but does nothing (no damage, no damage
+  // events).
   SHOOT: {
-    label: (a, state) =>
-      `Shoot ${Units.def(state.spaces[a.target].unit).name} (${Units.damage(state, state.spaces[a.from].unit)} damage)`,
+    label(a, state) {
+      const target = state.spaces[a.target].unit;
+      const name = Units.label(state, target.id);
+      if (target.owner === state.currentPlayer) return `Shoot ${name} (friendly: no effect)`;
+      return `Shoot ${name} (${Units.damage(state, state.spaces[a.from].unit)} damage)`;
+    },
     list(state) {
       const spaces = Object.values(state.spaces);
       const out = [];
       for (const space of spaces) {
         if (!space.unit || space.unit.owner !== state.currentPlayer) continue;
         for (const target of spaces) {
-          if (target.unit && target.unit.owner !== state.currentPlayer) out.push({ type: "SHOOT", from: space.id, target: target.id });
+          if (target.unit && target !== space) out.push({ type: "SHOOT", from: space.id, target: target.id });
         }
       }
       return out;
@@ -198,9 +204,8 @@ const ACTIONS = {
       const from = state.spaces[a.from];
       const target = state.spaces[a.target];
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
-      if (!target || target.kind !== "octagon" || !target.unit || target.unit.owner === state.currentPlayer) {
-        return no("Choose an enemy unit.");
-      }
+      if (!Units.hasWeapon(from.unit)) return no("No weapon base, so it can only melee.");
+      if (!target || target.kind !== "octagon" || !target.unit || target === from) return no("Choose a unit's octagon.");
       if (Units.shotsLeft(state, from.unit) <= 0) return no("No shots left this turn.");
       if (Board.distance(from, target) > Units.range(state, from.unit)) return no("Out of range.");
       return OK;
@@ -208,10 +213,53 @@ const ACTIONS = {
     apply(state, a) {
       const shooter = state.spaces[a.from].unit;
       const target = state.spaces[a.target].unit;
-      const damage = Units.damage(state, shooter);
+      const friendly = target.owner === shooter.owner;
       shooter.shotsTaken++;
-      Events.emit(state, "unitShot", { player: state.currentPlayer, unit: shooter, target, damage });
-      Units.dealDamage(state, target, damage, shooter);
+      const damage = friendly ? 0 : Units.damage(state, shooter);
+      Events.emit(state, "unitShot", { player: state.currentPlayer, unit: shooter, target, damage, friendly });
+      if (!friendly) Units.dealDamage(state, target, Units.damageTypes(state, shooter), shooter);
+    },
+  },
+
+  // Every unit, with or without a weapon, can make a melee attack on an
+  // adjacent octagon (sharing a side), CONFIG.meleePerTurn times per turn.
+  // Untyped damage. Hitting a friendly unit's tile does nothing.
+  MELEE: {
+    label(a, state) {
+      const target = state.spaces[a.target].unit;
+      const name = Units.label(state, target.id);
+      if (target.owner === state.currentPlayer) return `Melee ${name} (friendly: no effect)`;
+      return `Melee ${name} (${Units.melee(state, state.spaces[a.from].unit)} damage)`;
+    },
+    list(state) {
+      const out = [];
+      for (const space of Object.values(state.spaces)) {
+        if (!space.unit || space.unit.owner !== state.currentPlayer) continue;
+        for (const id of Board.octagonNeighbors(state.spaces, space)) {
+          if (state.spaces[id].unit) out.push({ type: "MELEE", from: space.id, target: id });
+        }
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "unitControl");
+      if (!phase.ok) return phase;
+      const from = state.spaces[a.from];
+      const target = state.spaces[a.target];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      if (!target || !target.unit || !Board.octagonNeighbors(state.spaces, from).includes(target.id)) return no("Melee needs an adjacent unit.");
+      if (Units.meleeLeft(state, from.unit) <= 0) return no("No melee attacks left this turn.");
+      if (Units.melee(state, from.unit) <= 0) return no("This unit has no melee attack.");
+      return OK;
+    },
+    apply(state, a) {
+      const attacker = state.spaces[a.from].unit;
+      const target = state.spaces[a.target].unit;
+      const friendly = target.owner === attacker.owner;
+      attacker.meleeTaken++;
+      const damage = friendly ? 0 : Units.melee(state, attacker);
+      Events.emit(state, "unitMeleed", { player: state.currentPlayer, unit: attacker, target, damage, friendly });
+      if (!friendly) Units.dealDamage(state, target, damage, attacker, "untyped");
     },
   },
 

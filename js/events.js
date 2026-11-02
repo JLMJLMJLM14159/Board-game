@@ -37,8 +37,11 @@
 //               unitDeployed                 { player, unit, space }
 //               unitReserved                 { player, unit, space }  (space it left)
 //               unitMoved                    { player, unit, from, to }
-//               unitShot                     { player, unit (shooter), target, damage }
-//               unitDamaged                  { player, unit, amount, source }
+//               unitShot                     { player, unit (shooter), target, damage, friendly }
+//               unitMeleed                   { player, unit (attacker), target, damage, friendly }
+//                                            (friendly = hit an own unit's tile: no damage)
+//               unitDamaged                  { player, unit, amount, types, source }
+//                                            (types = { untyped, thermal, electrical, biological })
 //               unitHealed                   { player, unit, healer }
 //               unitDied                     { player, unit, space }  (the unit can react too)
 //               countersChanged              { player, unit, element, amount, before, after }
@@ -49,6 +52,9 @@
 //               partUnequipped               { player, part, unit }
 //               partUpgraded                 { player, part, from, to, unit|null }
 //               partSold                     { player, part, amount }
+//               partSalvaged                 { player, part, unit, from, to }  (a dead unit's part,
+//                                            back in storage one rarity lower)
+//               partDestroyed                { player, part, unit }  (a dead unit's common part)
 //               offerLocked                  { player, part, locked }
 //   Board:      buildingBuilt                { player, building, space, unit (builder) }
 //               territoryClaimed             { player, space, from (old controller), unit }

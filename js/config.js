@@ -95,16 +95,12 @@ const CONFIG = {
   // ---- Weapons ----
   // Every unit carries one weapon of its own.
 
-  // Weapon base classes. Every base in data/weapons.js must use one of these.
-  weaponClasses: ["pistol", "smg", "ar", "sniper", "shotgun", "lmg"],
-
-  // Slot types for custom attachments. A weapon has 2 attachment slots,
-  // and the two attachments must be different types.
-  // PLACEHOLDER: add, remove or rename freely.
-  attachmentTypes: ["scope", "side", "underbarrel", "stock", "muzzle"],
-
-  // Number of attachment slots on each weapon.
+  // Attachment slots on every unit (on a military unit's weapon, or a support
+  // unit's kit). A unit can't hold two of the same attachment.
   attachmentSlots: 2,
+
+  // Melee attacks each unit can make per turn (on an adjacent octagon).
+  meleePerTurn: 1,
 
   // ---- Part rarity ----
   // Every weapon part except the base gets a random rarity when it

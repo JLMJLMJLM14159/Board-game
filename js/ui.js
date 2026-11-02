@@ -145,7 +145,11 @@ const UI = {
     for (const a of legal) {
       if (!selectedSpace || a.from !== selectedSpace.id) continue;
       if (a.type === "MOVE_UNIT") clickActions[a.to] = a;
-      if (a.type === "SHOOT") clickActions[a.target] = a;
+      // Clicking your own units should still select them, so friendly shots and
+      // melee are only offered as buttons in the info panel.
+      const target = a.target && state.spaces[a.target].unit;
+      const friendly = target && target.owner === state.currentPlayer;
+      if ((a.type === "SHOOT" || a.type === "MELEE") && !friendly && !clickActions[a.target]) clickActions[a.target] = a;
       if (a.type === "HEAL") clickActions[a.target] = a;
     }
 
@@ -174,7 +178,7 @@ const UI = {
       if (inRange(space)) g.classList.add("in-range");
       const clickAction = clickActions[space.id];
       if (clickAction) {
-        g.classList.add({ SHOOT: "shoot-target", HEAL: "heal-target", MOVE_UNIT: "move-target" }[clickAction.type]);
+        g.classList.add({ SHOOT: "shoot-target", MELEE: "shoot-target", HEAL: "heal-target", MOVE_UNIT: "move-target" }[clickAction.type]);
       }
       g.dataset.id = space.id;
 
@@ -243,7 +247,8 @@ const UI = {
     const scaled = part.scaledStatsFor(instance);
     const color = instance.rarity && Rarity.get(instance.rarity).color;
     const stats = Object.entries(part.statsFor(instance)).map(([key, value]) => {
-      const shown = typeof value === "number" && value > 0 ? `+${value}` : value;
+      // A base sets starting values ("range 2"); other parts add or subtract ("range +1").
+      const shown = typeof value === "number" && value > 0 && !(part instanceof WeaponBase) ? `+${value}` : value;
       return scaled.includes(key)
         ? `${key} <b class="scaled" style="color:${color}">${shown}</b>`
         : `${key} ${shown}`;
@@ -252,8 +257,9 @@ const UI = {
   },
 
   partKind(part) {
-    if (part instanceof WeaponBase) return `Base · ${part.weaponClass}`;
-    if (part instanceof Attachment) return `Attachment · ${part.attachmentType}`;
+    if (part instanceof WeaponBase) return "Base";
+    if (part instanceof SupportAttachment) return `Support attachment · ${part.unitTypes.map((t) => UNIT_TYPES[t]?.name ?? t).join(" / ")}`;
+    if (part instanceof Attachment) return "Attachment";
     return part.slot.charAt(0).toUpperCase() + part.slot.slice(1);
   },
 
@@ -350,7 +356,7 @@ const UI = {
       })
       .join("");
     root.innerHTML = `
-      <h2 style="color:${owner.color}">${Units.def(unit).name} ${where} · ${support ? "Support attachments" : base ? `${base.name} <small class="muted">${base.weaponClass}</small>` : "Weapon"}</h2>
+      <h2 style="color:${owner.color}">${Units.def(unit).name} ${where} · ${support ? "Support attachments" : base ? base.name : "Weapon"}</h2>
       <ul class="weapon-rows">${rows}</ul>`;
     const placeOf = (value) => (/^\d+$/.test(value) ? Number(value) : value);
     root.querySelectorAll("[data-place]").forEach((el) => {
@@ -401,10 +407,12 @@ const UI = {
     return `
       <p><b>${def.name}</b> <span class="muted">(${def.category}, ${state.players[u.owner].name})</span></p>
       <p><span class="muted">Health</span> ${Units.health(state, u)}/${Units.maxHealth(state, u)}
-         · <span class="muted">Damage</span> ${Units.damage(state, u)}
-         · <span class="muted">Range</span> ${Units.range(state, u)}</p>
-      <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}
-         · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>
+         · <span class="muted">Melee</span> ${Units.melee(state, u)} <span class="muted">(${Units.meleeLeft(state, u)}/${CONFIG.meleePerTurn} left)</span></p>
+      <p>${Units.hasWeapon(u)
+        ? `<span class="muted">Shot</span> ${UI.damageHtml(state, u)} · <span class="muted">Range</span> ${Units.range(state, u)}
+           · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}`
+        : `<span class="muted">No weapon base: can't shoot.</span>`}</p>
+      <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}</p>
       ${UI.abilitiesHtml(u)}
       ${UI.countersHtml(u)}`;
   },
@@ -418,6 +426,15 @@ const UI = {
         return `<b style="color:${e.color}">${n > 0 ? "+" : "−"}${Math.abs(n)} ${e.name}</b>`;
       });
     return `<p><span class="muted">Counters</span> ${parts.length ? parts.join(" · ") : `<span class="muted">none</span>`}</p>`;
+  },
+
+  // A shot's damage, with typed parts in their element's colour: "5 (2 thermal)".
+  damageHtml(state, u) {
+    const types = Units.damageTypes(state, u);
+    const typed = CONFIG.synergyElements
+      .filter((e) => types[e.id] > 0)
+      .map((e) => `<b style="color:${e.color}">${types[e.id]} ${e.name.toLowerCase()}</b>`);
+    return `${Units.damage(state, u)} damage${typed.length ? ` (${typed.join(", ")})` : ""}`;
   },
 
   // "Builds left 1/1 · Heals left 0/1 (range 1)" for units with abilities.

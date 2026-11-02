@@ -12,6 +12,7 @@
 //     shotsTaken: 0,      // shots used this turn
 //     buildsTaken: 0,     // buildings built this turn (units with the build ability)
 //     healsTaken: 0,      // heals given this turn (units with the heal ability)
+//     meleeTaken: 0,      // melee attacks made this turn
 //     counters: { thermal: 0, electrical: 0, biological: 0 },
 //                         // net counters per element: +3 = three positive,
 //                         // -2 = two negative (positive and negative cancel out)
@@ -19,8 +20,14 @@
 //     weapon: { base, barrel, mag, attachments },   // its own weapon (see armory.js)
 //   }
 //
-// Stats (movement, range, health, damage, shots) are NEVER stored: they're
-// worked out from the unit's type and its weapons every time they're asked for.
+// Stats are NEVER stored: they're worked out every time they're asked for.
+// A unit's type gives its default stats; a weapon BASE replaces those with its
+// own starting values (for each stat it lists); every other part then adds to or
+// subtracts from them.
+//
+// Damage per shot is split into types: `damage` (untyped) plus `thermalDamage`,
+// `electricalDamage` and `biologicalDamage`. Units without a weapon base can't
+// shoot, but every unit has a `melee` attack on an adjacent octagon.
 // Storing damage taken instead of current health means that when max health
 // changes, current health changes by the same amount automatically.
 // =============================================================
@@ -36,6 +43,7 @@ const Units = {
       shotsTaken: 0,
       buildsTaken: 0,
       healsTaken: 0,
+      meleeTaken: 0,
       counters: Object.fromEntries(Synergy.ids().map((id) => [id, 0])),
       reservedOnTurn: null,
       weapon: Armory.createEmptyWeapon(),
@@ -118,11 +126,15 @@ const Units = {
     Events.emit(state, "countersCleared", { player: state.currentPlayer, unit, before });
   },
 
-  // Deals damage to a unit. `source` is the unit that caused it, if any.
-  dealDamage(state, unit, amount, source = null) {
+  // Deals damage to a unit. `damage` is either a number with a `type`
+  // ("untyped", "thermal", "electrical" or "biological"), or a breakdown like
+  // { untyped: 2, thermal: 1 }. `source` is the unit that caused it, if any.
+  dealDamage(state, unit, damage, source = null, type = "untyped") {
+    const types = typeof damage === "number" ? { [type]: damage } : damage;
+    const amount = Object.values(types).reduce((sum, n) => sum + n, 0);
     if (amount <= 0) return;
     unit.damageTaken += amount;
-    Events.emit(state, "unitDamaged", { player: state.currentPlayer, unit, amount, source });
+    Events.emit(state, "unitDamaged", { player: state.currentPlayer, unit, amount, types, source });
   },
 
   // Restores a unit to full health and removes all its counters (Medics, going to reserve).
@@ -143,12 +155,17 @@ const Units = {
     return [unit.weapon];
   },
 
-  // Total of one stat across every part on the unit's weapons
+  hasWeapon(unit) {
+    return unit.weapon.base !== null;
+  },
+
+  // Total of one stat across every part on the unit's weapon EXCEPT the base
   // (rarity applied). Negative values lower the stat.
   weaponModifier(state, unit, stat) {
     let total = 0;
     for (const weapon of Units.weaponsOf(state, unit)) {
       for (const instance of Armory.installed(weapon)) {
+        if (instance === weapon.base) continue;
         const value = WEAPON_PARTS[instance.partId].statsFor(instance)[stat];
         if (typeof value === "number") total += value;
       }
@@ -156,10 +173,18 @@ const Units = {
     return total;
   },
 
-  // A stat from the unit's type plus its weapon modifiers, never below 0.
+  // A stat's starting value: the weapon base's, if it lists that stat,
+  // otherwise the unit type's default.
+  startingStat(unit, stat) {
+    const base = unit.weapon.base;
+    const baseStats = base ? WEAPON_PARTS[base.partId].statsFor(base) : {};
+    if (typeof baseStats[stat] === "number") return baseStats[stat];
+    return (Units.def(unit).stats || {})[stat] ?? 0;
+  },
+
+  // A stat: its starting value plus every other part's changes, never below 0.
   stat(state, unit, stat) {
-    const base = (Units.def(unit).stats || {})[stat] ?? 0;
-    return Math.max(0, base + Units.weaponModifier(state, unit, stat));
+    return Math.max(0, Units.startingStat(unit, stat) + Units.weaponModifier(state, unit, stat));
   },
 
   // How many side-to-side steps the unit can take each turn.
@@ -168,8 +193,9 @@ const Units = {
   },
 
   // How many side-to-side steps away the unit can shoot (diagonal = 2).
+  // Units without a weapon base can't shoot.
   range(state, unit) {
-    return Units.stat(state, unit, "range");
+    return Units.hasWeapon(unit) ? Units.stat(state, unit, "range") : 0;
   },
 
   maxHealth(state, unit) {
@@ -180,14 +206,31 @@ const Units = {
     return Units.maxHealth(state, unit) - unit.damageTaken;
   },
 
-  // Damage dealt by each shot.
-  damage(state, unit) {
-    return Units.stat(state, unit, "damage");
+  // The damage each shot deals, by type: { untyped, thermal, electrical, biological }.
+  damageTypes(state, unit) {
+    const types = { untyped: Units.stat(state, unit, "damage") };
+    for (const id of Synergy.ids()) types[id] = Units.stat(state, unit, `${id}Damage`);
+    return types;
   },
 
-  // Shots the unit can fire each turn.
+  // Total damage dealt by each shot (0 without a weapon base).
+  damage(state, unit) {
+    if (!Units.hasWeapon(unit)) return 0;
+    return Object.values(Units.damageTypes(state, unit)).reduce((sum, n) => sum + n, 0);
+  },
+
+  // Shots the unit can fire each turn (0 without a weapon base).
   shots(state, unit) {
-    return Units.stat(state, unit, "shots");
+    return Units.hasWeapon(unit) ? Units.stat(state, unit, "shots") : 0;
+  },
+
+  // Damage of the unit's melee attack (untyped), with or without a weapon.
+  melee(state, unit) {
+    return Units.stat(state, unit, "melee");
+  },
+
+  meleeLeft(state, unit) {
+    return Math.max(0, CONFIG.meleePerTurn - unit.meleeTaken);
   },
 
   movesLeft(state, unit) {
@@ -206,12 +249,14 @@ const Units = {
         space.unit.shotsTaken = 0;
         space.unit.buildsTaken = 0;
         space.unit.healsTaken = 0;
+        space.unit.meleeTaken = 0;
       }
     }
   },
 
   // Removes every deployed unit whose health has reached 0, whether from
-  // damage or from its max health dropping.
+  // damage or from its max health dropping. Its parts then go back to its
+  // owner's storage one rarity lower; common parts are destroyed.
   removeDead(state) {
     for (const space of Object.values(state.spaces)) {
       const unit = space.unit;
@@ -219,6 +264,31 @@ const Units = {
       space.unit = null;
       // The dead unit (and its parts) still hear about their own death.
       Events.emit(state, "unitDied", { player: state.currentPlayer, unit, space }, Events.unitListeners(unit, space));
+      Units.salvageParts(state, unit);
     }
+  },
+
+  // A dead unit's parts go to its owner's storage, each one rarity lower.
+  // Common parts are destroyed.
+  // PLACEHOLDER RULE: bases have no rarity, so they go back unchanged.
+  salvageParts(state, unit) {
+    const storage = state.players[unit.owner].storage;
+    for (const instance of Armory.installed(unit.weapon)) {
+      if (!instance.rarity) {
+        storage.push(instance);
+        Events.emit(state, "partSalvaged", { player: unit.owner, part: instance, unit, from: null, to: null });
+        continue;
+      }
+      const lower = Rarity.previous(instance.rarity);
+      if (!lower) {
+        Events.emit(state, "partDestroyed", { player: unit.owner, part: instance, unit });
+        continue;
+      }
+      const from = instance.rarity;
+      instance.rarity = lower;
+      storage.push(instance);
+      Events.emit(state, "partSalvaged", { player: unit.owner, part: instance, unit, from, to: lower });
+    }
+    unit.weapon = Armory.createEmptyWeapon();
   },
 };
