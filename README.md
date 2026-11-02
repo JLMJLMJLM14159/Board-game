@@ -25,6 +25,7 @@ js/parts.js         weapon part classes (see below)
 js/armory.js        working with a whole weapon (each unit has one)
 js/rules.js         game state + every action the game allows
 js/ui.js            draws everything and reports clicks
+js/icons.js         simple board icons for units and buildings
 js/main.js          connects rules and UI, plus undo history
 ```
 
@@ -69,6 +70,17 @@ health, so current health = max health − damage taken: when max health changes
 same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
 can hit (red), then click the space to do it.
 
+## Units
+
+| Unit | Type | Ability |
+|---|---|---|
+| **Troop** | military | fights; takes and holds octagons |
+| **Builder** | civilian | builds one building per turn on a square next to it |
+| **Medic** | civilian | once per turn, restores one of your units within 1 step (or itself) to full health |
+
+Their stats are starting guesses in `js/data/units.js`. Abilities are set per unit type (`abilities: { build, heal }`),
+and each unit type has a board icon (`icon`, drawn from `js/icons.js`).
+
 ## Territory and buildings
 
 The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, each with an **HQ**
@@ -79,8 +91,8 @@ The game is for 2 players. Player 1 starts at the bottom, Player 2 at the top, e
   stays yours until an enemy military unit steps on it. Civilian units never take control.
 - **Deploying:** units can only be deployed onto empty octagons touching one of your buildings that is
   `deployable` (like the HQ). Other buildings, like a future hospital, don't allow deploying.
-- **Building:** only **civilian** units can build, on an empty square touching them, and each civilian
-  can build one building per turn (`CONFIG.buildsPerCivilianPerTurn`). Buildings cost money (`cost`).
+- **Building:** only units with the build ability (the **Builder**) can build, on an empty square touching
+  them, once per turn. Buildings cost money (`cost`).
   The HQ can't be built.
 - **Capturing:** a building switches to the enemy when they control 3 of the 4 octagons around it
   (`CONFIG.captureThreshold`). Buildings are coloured by owner.

@@ -98,6 +98,26 @@ const UI = {
     return pts.map(([dx, dy]) => `${x + dx},${y + dy}`).join(" ");
   },
 
+  // Draws an icon from icons.js centred on (x, y), `size` units across, in `color`.
+  // Falls back to the first two letters of `fallback` if there's no such icon.
+  svgIcon(name, x, y, size, color, fallback, className) {
+    const icon = ICONS[name];
+    if (!icon) return UI.svgText(x, y, fallback.slice(0, 2).toUpperCase(), className, color);
+    const g = document.createElementNS(SVG_NS, "g");
+    const scale = size / 24;
+    g.setAttribute("transform", `translate(${x - size / 2} ${y - size / 2}) scale(${scale})`);
+    g.setAttribute("class", "icon");
+    for (const d of icon.paths) {
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      path.style.fill = icon.fill ? color : "none";
+      path.style.stroke = color;
+      path.style.strokeWidth = icon.fill ? 0 : 2.2;
+      g.appendChild(path);
+    }
+    return g;
+  },
+
   svgText(x, y, text, className, fill) {
     const el = document.createElementNS(SVG_NS, "text");
     el.setAttribute("x", x);
@@ -125,6 +145,7 @@ const UI = {
       if (!selectedSpace || a.from !== selectedSpace.id) continue;
       if (a.type === "MOVE_UNIT") clickActions[a.to] = a;
       if (a.type === "SHOOT") clickActions[a.target] = a;
+      if (a.type === "HEAL") clickActions[a.target] = a;
     }
 
     // A selected unit shows its range; anything else shows its neighbours.
@@ -151,7 +172,9 @@ const UI = {
       if (actionSpaceIds.has(space.id)) g.classList.add("actionable");
       if (inRange(space)) g.classList.add("in-range");
       const clickAction = clickActions[space.id];
-      if (clickAction) g.classList.add(clickAction.type === "SHOOT" ? "shoot-target" : "move-target");
+      if (clickAction) {
+        g.classList.add({ SHOOT: "shoot-target", HEAL: "heal-target", MOVE_UNIT: "move-target" }[clickAction.type]);
+      }
       g.dataset.id = space.id;
 
       const shape = document.createElementNS(SVG_NS, "polygon");
@@ -171,12 +194,13 @@ const UI = {
       const { x, y } = UI.center(space);
       if (space.unit) {
         const color = state.players[space.unit.owner].color;
-        g.appendChild(UI.svgText(x, y - 6, Units.def(space.unit).name.slice(0, 2).toUpperCase(), "occupant octagon", color));
+        const def = Units.def(space.unit);
+        g.appendChild(UI.svgIcon(def.icon, x, y - 5, 27, color, def.name, "occupant octagon"));
         const hp = `${Units.health(state, space.unit)}/${Units.maxHealth(state, space.unit)}`;
-        g.appendChild(UI.svgText(x, y + 14, hp, "health"));
+        g.appendChild(UI.svgText(x, y + 16, hp, "health"));
       } else if (space.building) {
         const def = BUILDING_TYPES[space.building.typeId];
-        g.appendChild(UI.svgText(x, y, def.name.slice(0, 2).toUpperCase(), "occupant square"));
+        g.appendChild(UI.svgIcon(def.icon, x, y, 15, "#0b0f14", def.name, "occupant square"));
       }
 
       g.addEventListener("click", () =>
@@ -349,7 +373,18 @@ const UI = {
          · <span class="muted">Damage</span> ${Units.damage(state, u)}
          · <span class="muted">Range</span> ${Units.range(state, u)}</p>
       <p><span class="muted">Moves left</span> ${Units.movesLeft(state, u)}/${Units.movement(state, u)}
-         · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>`;
+         · <span class="muted">Shots left</span> ${Units.shotsLeft(state, u)}/${Units.shots(state, u)}</p>
+      ${UI.abilitiesHtml(u)}`;
+  },
+
+  // "Builds left 1/1 · Heals left 0/1 (range 1)" for units with abilities.
+  abilitiesHtml(u) {
+    const parts = [];
+    const build = Units.ability(u, "build");
+    const heal = Units.ability(u, "heal");
+    if (build) parts.push(`<span class="muted">Builds left</span> ${build.perTurn - u.buildsTaken}/${build.perTurn}`);
+    if (heal) parts.push(`<span class="muted">Heals left</span> ${heal.perTurn - u.healsTaken}/${heal.perTurn} <span class="muted">(range ${heal.range})</span>`);
+    return parts.length ? `<p>${parts.join(" · ")}</p>` : "";
   },
 
   reserveUnitPanel(state, selection, title, body) {

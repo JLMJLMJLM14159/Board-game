@@ -172,6 +172,45 @@ const ACTIONS = {
     },
   },
 
+  // A unit with the heal ability restores one of your units within its heal
+  // range (or itself) to full health.
+  // PLACEHOLDER RULE: only during Unit control, and only your own units.
+  HEAL: {
+    label: (a, state) => {
+      const target = state.spaces[a.target].unit;
+      return a.from === a.target ? "Heal itself to full" : `Heal ${Units.label(state, target.id)} to full`;
+    },
+    list(state) {
+      const out = [];
+      const spaces = Object.values(state.spaces);
+      for (const from of spaces) {
+        if (!from.unit || from.unit.owner !== state.currentPlayer || !Units.ability(from.unit, "heal")) continue;
+        for (const target of spaces) {
+          if (target.unit && target.unit.owner === state.currentPlayer) out.push({ type: "HEAL", from: from.id, target: target.id });
+        }
+      }
+      return out;
+    },
+    check(state, a) {
+      const phase = inPhase(state, "unitControl");
+      if (!phase.ok) return phase;
+      const from = state.spaces[a.from];
+      const target = state.spaces[a.target];
+      if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
+      const heal = Units.ability(from.unit, "heal");
+      if (!heal) return no("This unit can't heal.");
+      if (from.unit.healsTaken >= heal.perTurn) return no("Already healed this turn.");
+      if (!target || !target.unit || target.unit.owner !== state.currentPlayer) return no("Choose one of your units.");
+      if (Board.distance(from, target) > heal.range) return no("Too far away to heal.");
+      if (target.unit.damageTaken <= 0) return no("Already at full health.");
+      return OK;
+    },
+    apply(state, a) {
+      state.spaces[a.from].unit.healsTaken++;
+      state.spaces[a.target].unit.damageTaken = 0;
+    },
+  },
+
   // ---- Market and storage: getting parts onto your units' weapons ----
   // Parts can go onto any of your units, deployed or in reserve. A part that
   // gets replaced goes into your storage.
@@ -347,7 +386,7 @@ const ACTIONS = {
 
   // ---- Buildings ----
 
-  // A civilian unit builds on an empty square touching it.
+  // A unit with the build ability builds on an empty square touching it.
   PLACE_BUILDING: {
     label(a, state) {
       const def = BUILDING_TYPES[a.buildingTypeId];
@@ -357,7 +396,7 @@ const ACTIONS = {
     list(state) {
       const out = [];
       for (const from of Object.values(state.spaces)) {
-        if (!from.unit || from.unit.owner !== state.currentPlayer || !Units.isCivilian(from.unit)) continue;
+        if (!from.unit || from.unit.owner !== state.currentPlayer || !Units.ability(from.unit, "build")) continue;
         for (const spaceId of Board.squareNeighbors(state.spaces, from)) {
           for (const buildingTypeId in BUILDING_TYPES) out.push({ type: "PLACE_BUILDING", from: from.id, spaceId, buildingTypeId });
         }
@@ -373,8 +412,9 @@ const ACTIONS = {
       if (!def.buildable) return no(`${def.name} can't be built.`);
       const from = state.spaces[a.from];
       if (!from || !from.unit || from.unit.owner !== state.currentPlayer) return no("Not your unit.");
-      if (!Units.isCivilian(from.unit)) return no("Only civilian units can build.");
-      if (from.unit.buildsTaken >= CONFIG.buildsPerCivilianPerTurn) return no("This unit has already built this turn.");
+      const build = Units.ability(from.unit, "build");
+      if (!build) return no("This unit can't build.");
+      if (from.unit.buildsTaken >= build.perTurn) return no("This unit has already built this turn.");
       const space = state.spaces[a.spaceId];
       if (!space || space.kind !== "square") return no("Buildings go on squares.");
       if (!Board.squareNeighbors(state.spaces, from).includes(space.id)) return no("Must touch the builder.");

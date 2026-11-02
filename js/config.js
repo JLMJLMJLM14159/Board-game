@@ -31,9 +31,6 @@ const CONFIG = {
   // How many of the 4 octagons around a building an enemy must control to capture it.
   captureThreshold: 3,
 
-  // How many buildings each civilian unit can build per turn.
-  buildsPerCivilianPerTurn: 1,
-
   // ---- Money ----
   // PLACEHOLDER: starting money for each player.
   startingMoney: 0,

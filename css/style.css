@@ -171,6 +171,8 @@ aside {
 .space.in-range polygon { fill: #2a2030; }
 .space.move-target polygon { fill: #1d4a3a; stroke: #4caf50; stroke-width: 2; }
 .space.shoot-target polygon { fill: #4a1d24; stroke: #ef5350; stroke-width: 2.5; }
+.space.heal-target polygon { fill: #1d3a4a; stroke: #4fc3f7; stroke-width: 2.5; }
+.icon { pointer-events: none; stroke-linecap: round; stroke-linejoin: round; }
 .space.selected polygon { stroke: var(--accent); stroke-width: 3; fill: #123040; }
 
 .occupant {

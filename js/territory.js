@@ -8,7 +8,7 @@
 //   when another player controls CONFIG.captureThreshold of the 4 octagons
 //   around it.
 // - Units deploy onto empty octagons touching one of your DEPLOYABLE buildings.
-// - Civilian units build on empty squares touching them (see PLACE_BUILDING in rules.js).
+// - Units with the build ability (the Builder) build on empty squares touching them.
 // - Capturing a building with `capturingWins` (the HQ) wins the game.
 // =============================================================
 

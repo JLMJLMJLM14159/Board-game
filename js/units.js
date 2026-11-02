@@ -10,7 +10,8 @@
 //     damageTaken: 0,     // current health = max health - damageTaken
 //     stepsTaken: 0,      // moves used this turn
 //     shotsTaken: 0,      // shots used this turn
-//     buildsTaken: 0,     // buildings built this turn (civilians only)
+//     buildsTaken: 0,     // buildings built this turn (units with the build ability)
+//     healsTaken: 0,      // heals given this turn (units with the heal ability)
 //     weapon: { base, barrel, mag, attachments },   // its own weapon (see armory.js)
 //   }
 //
@@ -30,6 +31,7 @@ const Units = {
       stepsTaken: 0,
       shotsTaken: 0,
       buildsTaken: 0,
+      healsTaken: 0,
       weapon: Armory.createEmptyWeapon(),
     };
   },
@@ -68,9 +70,15 @@ const Units = {
     return UNIT_TYPES[unit.typeId];
   },
 
-  // Civilian units can build; military units can't.
+  // Civilian units never take control of octagons.
   isCivilian(unit) {
     return Units.def(unit).category === "civilian";
+  },
+
+  // A unit type's special ability settings (e.g. "build", "heal"), or null if it doesn't have it.
+  ability(unit, name) {
+    const abilities = Units.def(unit).abilities || {};
+    return abilities[name] || null;
   },
 
   // The weapons this unit is using: each unit has its own one.
@@ -140,6 +148,7 @@ const Units = {
         space.unit.stepsTaken = 0;
         space.unit.shotsTaken = 0;
         space.unit.buildsTaken = 0;
+        space.unit.healsTaken = 0;
       }
     }
   },
