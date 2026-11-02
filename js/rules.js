@@ -267,6 +267,22 @@ const ACTIONS = {
     },
   },
 
+  // Sells a part from your storage.
+  SELL_PART: {
+    label: (a, state) => `Sell for $${Market.sellValue(state.players[state.currentPlayer].storage[a.index])}`,
+    list: (state) => state.players[state.currentPlayer].storage.map((_, index) => ({ type: "SELL_PART", index })),
+    check(state, a) {
+      const phase = inPhase(state, "main");
+      if (!phase.ok) return phase;
+      return state.players[state.currentPlayer].storage[a.index] ? OK : no("That part isn't in storage.");
+    },
+    apply(state, a) {
+      const player = state.players[state.currentPlayer];
+      const [instance] = player.storage.splice(a.index, 1);
+      player.money += Market.sellValue(instance);
+    },
+  },
+
   // Takes a part off a unit's weapon and puts it in storage.
   // A base can only come off once nothing else is on the weapon.
   UNEQUIP_PART: {
@@ -525,9 +541,11 @@ const Rules = {
     );
   },
 
-  // Legal actions that fit one stored part onto `unitId`.
+  // Legal actions on one stored part: fitting it onto `unitId`, and selling it.
   getActionsForStored(state, index, unitId) {
-    return Rules.getLegalActions(state).filter((a) => a.type === "EQUIP_PART" && a.index === index && a.unitId === unitId);
+    return Rules.getLegalActions(state).filter(
+      (a) => a.index === index && (a.type === "SELL_PART" || (a.type === "EQUIP_PART" && a.unitId === unitId))
+    );
   },
 
   getActionsOfType(state, type) {

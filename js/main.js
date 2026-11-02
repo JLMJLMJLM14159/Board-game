@@ -7,9 +7,10 @@ let state = Rules.createInitialState();
 let history = [];
 let selection = null;
 let focusUnitId = null; // the unit whose weapon menu is showing
+let storageOpen = false; // is the Reserve & storage window open?
 
 function refresh() {
-  UI.render(state, selection, history.length > 0, focusUnitId);
+  UI.render(state, selection, history.length > 0, focusUnitId, storageOpen);
 }
 
 UI.init({
@@ -17,6 +18,11 @@ UI.init({
     selection = next;
     const space = next.kind === "space" && state.spaces[next.id];
     if (space && space.unit) focusUnitId = space.unit.id;
+    refresh();
+  },
+
+  onStorage(open) {
+    storageOpen = open;
     refresh();
   },
 
@@ -34,11 +40,10 @@ UI.init({
       if (state.currentPlayer !== previousPlayer) {
         selection = null;
         focusUnitId = null;
+        storageOpen = false;
       }
       // Keep a moving unit selected so it can keep moving.
       if (action.type === "MOVE_UNIT") selection = { kind: "space", id: action.to };
-      // A fitted stored part shifts the storage list, so go back to the army view.
-      if (action.type === "EQUIP_PART") selection = { kind: "army" };
       // Show the unit that was just deployed, and its weapon.
       if (action.type === "DEPLOY_UNIT") {
         selection = { kind: "space", id: action.spaceId };
@@ -63,8 +68,16 @@ UI.init({
     history = [];
     selection = null;
     focusUnitId = null;
+    storageOpen = false;
     refresh();
   },
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && storageOpen) {
+    storageOpen = false;
+    refresh();
+  }
 });
 
 refresh();

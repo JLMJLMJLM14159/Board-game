@@ -6,12 +6,12 @@
 // "Selection" is what the player is looking at in the side panel:
 //   { kind: "space",  id: "O-2-3" }
 //   { kind: "offer",  pile: "parts", slot: 2 }   // a market offer
-//   { kind: "stored", index: 0 }                  // a part in your storage
 //   { kind: "unitType", typeId: "trooper" }       // a unit for sale in the shop
-//   { kind: "army" }                              // your reserve units and stored parts
 //
 // "focusUnitId" is the unit whose weapon is shown in the weapon menu: the last
 // unit clicked, on the board or in the reserve. Parts are fitted onto its weapon.
+//
+// The Reserve & storage window opens over everything from its own button.
 // =============================================================
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -33,13 +33,14 @@ const UI = {
     document.getElementById("restart").onclick = handlers.onRestart;
   },
 
-  render(state, selection, canUndo, focusUnitId) {
+  render(state, selection, canUndo, focusUnitId, storageOpen) {
     const focus = focusUnitId ? Units.find(state, focusUnitId) : null;
     UI.renderTopBar(state, canUndo);
     UI.renderBoard(state, selection);
     UI.renderMarket(state, selection);
     UI.renderWeapon(state, focus);
     UI.renderPanel(state, selection, focus);
+    UI.renderStorage(state, focus, storageOpen);
   },
 
   renderTopBar(state, canUndo) {
@@ -236,8 +237,6 @@ const UI = {
         : `<span class="muted">${Object.keys(WEAPON_PARTS).length ? "empty" : "none in the catalogue yet"}</span>`;
       return `<div class="market-row"><span class="muted">${label}</span><div class="chips">${chips}</div></div>`;
     };
-    const player = state.players[state.currentPlayer];
-    const armySelected = selection && (selection.kind === "army" || selection.kind === "stored");
     const unitChips = Object.values(UNIT_TYPES)
       .map((def) => {
         const selected = selection && selection.kind === "unitType" && selection.typeId === def.id;
@@ -247,10 +246,7 @@ const UI = {
       })
       .join("");
     root.innerHTML = `
-      <div class="shop-head">
-        <h2>Shop</h2>
-        <button class="chip ${armySelected ? "selected" : ""}" id="army">Reserve ${player.reserve.length} · Storage ${player.storage.length}</button>
-      </div>
+      <h2>Shop</h2>
       ${pile("bases", "Bases")}
       ${pile("parts", "Parts")}
       <div class="market-row"><span class="muted">Units</span>
@@ -263,7 +259,6 @@ const UI = {
     root.querySelectorAll("[data-unittype]").forEach((el) => {
       el.onclick = () => UI.handlers.onSelect({ kind: "unitType", typeId: el.dataset.unittype });
     });
-    document.getElementById("army").onclick = () => UI.handlers.onSelect({ kind: "army" });
   },
 
   // ---------- Weapon menu: the focused unit's weapon ----------
@@ -325,12 +320,8 @@ const UI = {
       actions = UI.spacePanel(state, state.spaces[selection.id], title, body);
     } else if (selection.kind === "offer") {
       actions = UI.offerPanel(state, selection, focus, title, body);
-    } else if (selection.kind === "stored") {
-      actions = UI.storedPanel(state, selection, focus, title, body);
-    } else if (selection.kind === "unitType") {
-      actions = UI.unitTypePanel(state, selection, title, body);
     } else {
-      actions = UI.armyPanel(state, focus, title, body);
+      actions = UI.unitTypePanel(state, selection, title, body);
     }
 
     list.replaceChildren(
@@ -341,7 +332,7 @@ const UI = {
         return btn;
       })
     );
-    if (selection && actions.length === 0 && selection.kind !== "army") {
+    if (selection && actions.length === 0) {
       list.innerHTML = `<p class="muted">No actions available here right now.</p>`;
     }
   },
@@ -382,7 +373,7 @@ const UI = {
   fitNote(state, focus) {
     return focus && focus.unit.owner === state.currentPlayer
       ? `Fits onto <b>${Units.label(state, focus.unit.id)}</b> (the unit in the weapon menu).`
-      : "Click one of your units, on the board or in your reserve, to fit this onto its weapon.";
+      : "Click one of your units on the board, or in Reserve & storage, to fit this onto its weapon.";
   },
 
   partDetailsHtml(instance, extra) {
@@ -411,18 +402,6 @@ const UI = {
     return Rules.getActionsForOffer(state, selection.pile, selection.slot, mine ? focus.unit.id : null);
   },
 
-  storedPanel(state, selection, focus, title, body) {
-    const instance = state.players[state.currentPlayer].storage[selection.index];
-    title.textContent = "Storage";
-    if (!instance) {
-      body.innerHTML = `<p class="muted">That part is no longer in storage.</p>`;
-      return [];
-    }
-    body.innerHTML = UI.partDetailsHtml(instance) + `<p class="muted">${UI.fitNote(state, focus)}</p>`;
-    const mine = focus && focus.unit.owner === state.currentPlayer;
-    return mine ? Rules.getActionsForStored(state, selection.index, focus.unit.id) : [];
-  },
-
   // A unit for sale in the shop.
   unitTypePanel(state, selection, title, body) {
     const def = UNIT_TYPES[selection.typeId];
@@ -437,31 +416,78 @@ const UI = {
     return Rules.getActionsOfType(state, "BUY_UNIT").filter((a) => a.unitTypeId === def.id);
   },
 
-  // Reserve units (click to see their weapon) and stored parts.
-  armyPanel(state, focus, title, body) {
+  // ---------- Reserve & storage window ----------
+
+  renderStorage(state, focus, open) {
     const player = state.players[state.currentPlayer];
-    title.textContent = `${player.name} · Reserve & storage`;
+    const button = document.getElementById("open-storage");
+    button.innerHTML = `Reserve &amp; storage <span>${player.reserve.length} unit${player.reserve.length === 1 ? "" : "s"} · ${player.storage.length} part${player.storage.length === 1 ? "" : "s"}</span>`;
+    button.onclick = () => UI.handlers.onStorage(true);
+
+    const overlay = document.getElementById("overlay");
+    overlay.hidden = !open;
+    if (!open) return;
+
+    const mine = focus && focus.unit.owner === state.currentPlayer;
+    const partsList = (weapon) => {
+      const parts = Armory.installed(weapon);
+      return parts.length ? parts.map((i) => UI.partHtml(i)).join(", ") : `<span class="muted">no parts</span>`;
+    };
     const reserve = player.reserve
-      .map((u) => {
-        const parts = Armory.installed(u.weapon).length;
-        const selected = focus && focus.unit.id === u.id;
-        return `<button class="chip ${selected ? "selected" : ""}" data-unit="${u.id}">${Units.def(u).name}
-                  <span class="muted">· ${parts} part${parts === 1 ? "" : "s"}</span></button>`;
-      })
+      .map((u) => `
+        <button class="card ${focus && focus.unit.id === u.id ? "selected" : ""}" data-unit="${u.id}">
+          <b>${Units.def(u).name}</b> <span class="muted">${Units.def(u).category}</span>
+          <div>${partsList(u.weapon)}</div>
+        </button>`)
       .join("");
     const storage = player.storage
-      .map((item, index) => `<button class="chip" data-stored="${index}">${UI.partHtml(item)}</button>`)
+      .map((item, index) => {
+        const part = WEAPON_PARTS[item.partId];
+        const rarity = item.rarity && Rarity.get(item.rarity);
+        const actions = Rules.getActionsForStored(state, index, mine ? focus.unit.id : null);
+        const buttons = actions
+          .map((a, n) => `<button data-stored="${index}" data-action="${n}">${Rules.describe(a, state)}</button>`)
+          .join("");
+        // Say why it can't be fitted onto the selected unit, e.g. "Add a base first."
+        const canFit = actions.some((a) => a.type === "EQUIP_PART");
+        const why = mine && !canFit && state.phase === "main"
+          ? Rules.checkFit(state, focus.unit.id, item, part.places(focus.unit.weapon)[0]).reason
+          : "";
+        return `
+          <div class="card">
+            ${UI.partHtml(item)} <span class="muted">${UI.partKind(part)}</span>
+            ${rarity ? `<span style="color:${rarity.color}">${rarity.name}</span>` : ""}
+            <div class="muted">${UI.partStatsHtml(item)}</div>
+            <div class="card-actions">${buttons}${why ? `<span class="muted">Can't fit: ${why}</span>` : ""}</div>
+          </div>`;
+      })
       .join("");
-    body.innerHTML = `
-      <p class="muted">Reserve (click to see its weapon)</p>
-      <div class="chip-wrap">${reserve || `<span class="muted">empty</span>`}</div>
-      <p class="muted">Storage (click to fit onto the unit in the weapon menu)</p>
-      <div class="chip-wrap">${storage || `<span class="muted">empty</span>`}</div>
-      <p class="muted">Income next turn: $${Rules.income(state)}. To deploy, click an empty octagon by a deployable building.</p>`;
-    body.querySelectorAll("[data-unit]").forEach((el) => (el.onclick = () => UI.handlers.onFocus(Number(el.dataset.unit))));
-    body.querySelectorAll("[data-stored]").forEach((el) => {
-      el.onclick = () => UI.handlers.onSelect({ kind: "stored", index: Number(el.dataset.stored) });
+
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-label="Reserve and storage">
+        <div class="modal-head">
+          <h2>${player.name} · Reserve &amp; storage</h2>
+          <button id="close-storage" title="Close (Esc)">✕ Close</button>
+        </div>
+        <p class="muted">${mine
+          ? `Fitting parts onto <b>${Units.label(state, focus.unit.id)}</b>. Click a reserve unit, or a unit on the board, to change it.`
+          : "Click a reserve unit (or one of your units on the board) to fit stored parts onto it."}
+          ${state.phase === "main" ? "" : " Storage can only be used during the Main phase."}</p>
+        <div class="modal-cols">
+          <section><h3>Reserve</h3>${reserve || `<p class="muted">No units in reserve.</p>`}</section>
+          <section><h3>Storage</h3>${storage || `<p class="muted">No parts in storage.</p>`}</section>
+        </div>
+      </div>`;
+
+    document.getElementById("close-storage").onclick = () => UI.handlers.onStorage(false);
+    overlay.onclick = (e) => {
+      if (e.target === overlay) UI.handlers.onStorage(false);
+    };
+    overlay.querySelectorAll("[data-unit]").forEach((el) => (el.onclick = () => UI.handlers.onFocus(Number(el.dataset.unit))));
+    overlay.querySelectorAll("[data-action]").forEach((el) => {
+      const index = Number(el.dataset.stored);
+      const actions = Rules.getActionsForStored(state, index, mine ? focus.unit.id : null);
+      el.onclick = () => UI.handlers.onAction(actions[Number(el.dataset.action)]);
     });
-    return [];
   },
 };

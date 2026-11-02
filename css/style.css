@@ -124,7 +124,7 @@ main {
 aside {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
   gap: var(--gap);
 }
 
@@ -151,9 +151,10 @@ aside {
   /* Panel and weapon menu side by side, market underneath. */
   aside {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto;
-    grid-template-areas: "panel weapon" "market market";
+    grid-template-rows: auto auto auto;
+    grid-template-areas: "panel weapon" "market market" "storage storage";
   }
+  #open-storage { grid-area: storage; }
   #panel { grid-area: panel; height: 170px; }
   #weapon { grid-area: weapon; height: 170px; overflow: hidden; }
   #market { grid-area: market; }
@@ -215,9 +216,67 @@ b.scaled { font-weight: 800; }
 }
 .chip b { font-weight: 600; }
 .chip.selected { border-color: var(--accent); }
-.shop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.shop-head h2 { margin: 0; }
-.shop-head .chip { flex: 0 0 auto; }
+#market h2 { margin-bottom: 2px; }
+
+/* ---------- Reserve & storage: big button + window ---------- */
+.big-button {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #0b0f14;
+  background: #ffd54f;
+  border: none;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.big-button span { font-weight: 500; font-size: 13px; }
+.big-button:hover:not(:disabled) { background: #ffe082; }
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+#overlay[hidden] { display: none; }
+.modal {
+  width: min(900px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid #ffd54f;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.modal-head h2 { color: #ffd54f; font-family: var(--mono); font-size: 16px; }
+.modal p { font-size: 13px; margin: 4px 0 10px; }
+.modal-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .modal-cols { grid-template-columns: 1fr; } }
+.modal h3 { font-size: 13px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+.card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+button.card:hover { border-color: var(--muted); }
+.card.selected { border-color: var(--accent); }
+.card-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.card-actions button { font-size: 12px; padding: 3px 8px; }
+.card-actions .muted { font-size: 12px; align-self: center; }
 .unequip {
   padding: 0;
   width: 18px;

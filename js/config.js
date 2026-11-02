@@ -47,6 +47,10 @@ const CONFIG = {
   // your main phase; locked ones keep their offer for a later turn.
   market: { parts: 5, bases: 2 },
 
+  // Selling a stored part gives back this share of its price, rounded down.
+  // PLACEHOLDER: the sell rate isn't decided yet.
+  sellRate: 0.5,
+
   // ---- Units ----
   // Every unit in data/units.js belongs to one of these categories.
   unitCategories: ["civilian", "military"],

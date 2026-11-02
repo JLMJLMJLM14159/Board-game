@@ -58,4 +58,9 @@ const Market = {
     if (cost === null) return null;
     return cost + (instance.rarity ? Rarity.get(instance.rarity).extraCost : 0);
   },
+
+  // Money back for selling a part: CONFIG.sellRate of its price, rounded down.
+  sellValue(instance) {
+    return Math.floor((Market.price(instance) ?? 0) * CONFIG.sellRate);
+  },
 };
