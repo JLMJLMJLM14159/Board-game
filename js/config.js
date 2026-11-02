@@ -51,7 +51,7 @@ const CONFIG = {
       startingMoney: 10,
       startingUnits: ["troop", "troop", "troop", "builder", "medic"],
       unitCosts: { troop: 2, builder: 2, medic: 3, military: 2, civilian: 2 },
-      partCosts: { base: 2, barrel: 1, mag: 1, attachment: 1 },
+      partCosts: { base: 2, barrel: 1, mag: 1, muzzle: 1, stock: 1, attachment: 1 },
       buildingCosts: { default: 2 },
     },
     standard: {
@@ -60,7 +60,7 @@ const CONFIG = {
       startingMoney: 5,
       startingUnits: ["troop", "troop", "builder"],
       unitCosts: { troop: 4, builder: 3, medic: 4, military: 4, civilian: 3 },
-      partCosts: { base: 3, barrel: 2, mag: 2, attachment: 2 },
+      partCosts: { base: 3, barrel: 2, mag: 2, muzzle: 2, stock: 2, attachment: 2 },
       buildingCosts: { default: 4 },
     },
     long: {
@@ -69,7 +69,7 @@ const CONFIG = {
       startingMoney: 3,
       startingUnits: ["troop", "builder"],
       unitCosts: { troop: 6, builder: 4, medic: 6, military: 6, civilian: 4 },
-      partCosts: { base: 4, barrel: 3, mag: 3, attachment: 3 },
+      partCosts: { base: 4, barrel: 3, mag: 3, muzzle: 3, stock: 3, attachment: 3 },
       buildingCosts: { default: 6 },
     },
   },

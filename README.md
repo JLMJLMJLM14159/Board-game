@@ -59,7 +59,8 @@ At the **Beginning** of your turn you gain $1 plus $1 for every unit in your res
 
 During **Main**:
 - the **Shop** holds everything you can buy: your market of 2 random bases, 5 random barrels/mags and
-  2 random attachments (weapon and support attachments; `CONFIG.market`), and units. Rarity is rolled the moment a part appears in the market. Click one of
+  2 random attachments (weapon and support attachments; `CONFIG.market`). The 5-slot parts row offers barrels,
+mags, muzzles and stocks, and units. Rarity is rolled the moment a part appears in the market. Click one of
   your units (on the board, or in the **Reserve & storage** panel just above the Shop), click an offer,
   and buy it onto that unit's weapon, or buy it into your **storage**. The Reserve & storage panel is always
   visible: its unit list (deployed and reserve) and its storage list scroll separately. Click a unit there to
@@ -89,7 +90,7 @@ During **Unit control** each of your units can do these in any order (e.g. move,
 Shooting or hitting a friendly unit's tile uses the attack but does nothing (no damage, no damage triggers);
 it's only offered as a button, so clicking your own units still selects them.
 
-Every unit carries **its own weapon** (base, barrel, mag, 2 attachments), shown in the weapon menu when
+Every unit carries **its own weapon** (base, barrel, mag, muzzle, stock, and 2 free attachment slots), shown in the weapon menu when
 you select the unit. A unit's type gives its default stats (`health`, `movement`, `melee`). The weapon **base**
 gives the unit's starting stats (e.g. `range`, `damage`, `shots`), replacing the defaults for any it lists, and
 every other part adds to or subtracts from them. A shot's damage can be split into types: `damage` (untyped)
@@ -161,12 +162,15 @@ WeaponPart                 any part: id, name, synergy, stats
 └── CustomPart             random rarity, optional legendary version, optional class restriction
     ├── Barrel             one per weapon
     ├── Mag                one per weapon
+    ├── Muzzle             one per weapon
+    ├── Stock              one per weapon
     └── Attachment         2 per weapon, never two of the same
         └── SupportAttachment  for support units only; lists which unit types it fits
 ```
 
 Each class holds its own rules (`places`, `canInstallOn`, `installOn`, `createInstance`, `statsFor`).
-A part goes into a place (`base`, `barrel`, `mag`, or attachment slot `0`/`1`); a filled place is replaced.
+A part goes into a place (`base`, `barrel`, `mag`, `muzzle`, `stock`, or attachment slot `0`/`1`); a filled place
+is replaced. The fixed slots are listed once, in `Armory.FIXED_PLACES`.
 Parts only add to or subtract from stats.
 A new kind of part is a new subclass. Parts in play are stored as plain `{ partId, rarity }`
 data so the game state can be copied for undo.
@@ -195,7 +199,8 @@ in landscape or portrait. The board shrinks to fit the space that's left.
 
 ## How to add things
 
-- **A weapon base or part:** add `new WeaponBase({...})`, `new Barrel({...})`, `new Mag({...})` or
+- **A weapon base or part:** add `new WeaponBase({...})`, `new Barrel({...})`, `new Mag({...})`, `new Muzzle({...})`,
+  `new Stock({...})`, `new SupportAttachment({...})` or
   `new Attachment({...})` to the list in `js/data/weapons.js`. Typos in classes or types show an error.
 - **A unit or building:** add an entry to `js/data/units.js` or `js/data/buildings.js`.
 - **A new kind of move:** add an entry to `ACTIONS` in `js/rules.js` with `list`, `check` and `apply`.

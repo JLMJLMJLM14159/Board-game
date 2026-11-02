@@ -435,7 +435,7 @@ const ACTIONS = {
     list(state) {
       const out = state.players[state.currentPlayer].storage.map((_, index) => ({ type: "UPGRADE_PART", index }));
       for (const unit of Units.allOf(state, state.currentPlayer)) {
-        for (const place of ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)]) {
+        for (const place of Armory.places(unit.weapon)) {
           out.push({ type: "UPGRADE_PART", unitId: unit.id, place });
         }
       }
@@ -475,7 +475,7 @@ const ACTIONS = {
     list(state) {
       const out = [];
       for (const unit of Units.allOf(state, state.currentPlayer)) {
-        for (const place of ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)]) {
+        for (const place of Armory.places(unit.weapon)) {
           out.push({ type: "UNEQUIP_PART", unitId: unit.id, place });
         }
       }

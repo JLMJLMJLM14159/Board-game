@@ -29,8 +29,8 @@ const WEAPON_PARTS = partCatalogue([
   //   description: "",
   // }),
 
-  // ---- Barrels and mags ----
-  // new Barrel({                    // or: new Mag({ ... })
+  // ---- Barrels, mags, muzzles and stocks ----
+  // new Barrel({                    // or: new Mag({ ... }), new Muzzle({ ... }), new Stock({ ... })
   //   id: "coil_barrel",
   //   name: "Coil Barrel",
   //   synergy: "electrical",        // optional

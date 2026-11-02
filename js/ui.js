@@ -317,6 +317,8 @@ const UI = {
       ["Base", weapon.base],
       ["Barrel", weapon.barrel],
       ["Mag", weapon.mag],
+      ["Muzzle", weapon.muzzle],
+      ["Stock", weapon.stock],
       ...weapon.attachments.map((instance, i) => [`Attach ${i + 1}`, instance]),
     ];
   },
@@ -341,7 +343,7 @@ const UI = {
       if (a.unitId === unit.id) upgrade[a.place] = a;
     }
     const support = Units.isCivilian(unit);
-    const places = ["base", "barrel", "mag", ...unit.weapon.attachments.map((_, i) => i)];
+    const places = Armory.places(unit.weapon);
     const rows = UI.weaponRows(unit.weapon)
       .map(([label, instance], i) => {
         // Support units only have attachment slots.

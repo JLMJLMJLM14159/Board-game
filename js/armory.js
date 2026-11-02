@@ -8,18 +8,30 @@
 //     base: { partId, rarity: null } | null,
 //     barrel: { partId, rarity } | null,
 //     mag: { partId, rarity } | null,
+//     muzzle: { partId, rarity } | null,
+//     stock: { partId, rarity } | null,
 //     attachments: [{ partId, rarity } | null, { partId, rarity } | null],
 //   }
 // =============================================================
 
 const Armory = {
+  // The fixed slots every weapon has, in order. Attachments come after these.
+  FIXED_PLACES: ["base", "barrel", "mag", "muzzle", "stock"],
+
   createEmptyWeapon() {
-    return {
-      base: null,
-      barrel: null,
-      mag: null,
-      attachments: new Array(CONFIG.attachmentSlots).fill(null),
-    };
+    const weapon = Object.fromEntries(Armory.FIXED_PLACES.map((place) => [place, null]));
+    weapon.attachments = new Array(CONFIG.attachmentSlots).fill(null);
+    return weapon;
+  },
+
+  // Every place on a weapon: the fixed slots, then attachment slot numbers.
+  places(weapon) {
+    return [...Armory.FIXED_PLACES, ...weapon.attachments.map((_, i) => i)];
+  },
+
+  // The part instance in a place, or null.
+  at(weapon, place) {
+    return (typeof place === "number" ? weapon.attachments[place] : weapon[place]) || null;
   },
 
   isEmpty(weapon) {
@@ -33,7 +45,7 @@ const Armory = {
 
   // Every installed part instance, base first.
   installed(weapon) {
-    return [weapon.base, weapon.barrel, weapon.mag, ...weapon.attachments].filter(Boolean);
+    return Armory.places(weapon).map((place) => Armory.at(weapon, place)).filter(Boolean);
   },
 
   // `unit` is the unit carrying the weapon (some parts only fit some units).

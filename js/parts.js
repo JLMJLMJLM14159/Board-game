@@ -8,6 +8,8 @@
 //       │                      legendary version
 //       ├── Barrel             one per weapon
 //       ├── Mag                one per weapon
+//       ├── Muzzle             one per weapon
+//       ├── Stock              one per weapon
 //       └── Attachment         up to 2 per weapon, never two of the same
 //           └── SupportAttachment   for support (civilian) units only, e.g. a
 //                                   Builder's tool kit; lists which unit types it fits
@@ -15,7 +17,7 @@
 // Military units carry a full weapon. Support units only have the 2
 // attachment slots, and only take SupportAttachments made for their type.
 //
-// A part goes into a PLACE on a weapon: "base", "barrel", "mag", or an
+// A part goes into a PLACE on a weapon: "base", "barrel", "mag", "muzzle", "stock", or an
 // attachment slot number (0, 1). Putting a part into a filled place
 // replaces the part that was there.
 //
@@ -165,6 +167,18 @@ class Barrel extends CustomPart {
 class Mag extends CustomPart {
   get slot() {
     return "mag";
+  }
+}
+
+class Muzzle extends CustomPart {
+  get slot() {
+    return "muzzle";
+  }
+}
+
+class Stock extends CustomPart {
+  get slot() {
+    return "stock";
   }
 }
 

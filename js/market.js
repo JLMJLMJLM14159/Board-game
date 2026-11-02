@@ -5,7 +5,7 @@
 // Each player has their own market (player.market), one row per pile:
 //   {
 //     bases:       [{ item: partInstance | null, locked: false }, ...],  // weapon bases
-//     parts:       [...],   // barrels and mags
+//     parts:       [...],   // barrels, mags, muzzles and stocks
 //     attachments: [...],   // attachments for both military weapons and support units
 //   }
 // The number of slots in each row is set in CONFIG.market.
