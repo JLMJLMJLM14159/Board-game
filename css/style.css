@@ -18,6 +18,7 @@
   --square: #222c38;
   --font: "Segoe UI", system-ui, sans-serif;
   --mono: "Consolas", "SFMono-Regular", monospace;
+  --selected: #ffffff; /* selection highlight: neutral, so it never looks like a player's colour */
   --gap: 10px;
 }
 
@@ -206,12 +207,12 @@ aside {
 .space.octagon polygon { fill: var(--octagon); }
 .space.square polygon { fill: var(--square); }
 .space:hover polygon { fill: var(--surface-2); }
-.space.neighbor polygon { fill: #1d3440; }
-.space.actionable polygon { stroke: #3b6a7a; }
-.space.in-range polygon { fill: #2a2030; }
+.space.neighbor polygon { fill: #252e39; }
+.space.actionable polygon { stroke: #6b7886; }
+.space.in-range polygon { fill: #2b313a; }
 .space.move-target polygon { fill: #1d4a3a; stroke: #4caf50; stroke-width: 2; }
 .space.shoot-target polygon { fill: #4a1d24; stroke: #ef5350; stroke-width: 2.5; }
-.space.heal-target polygon { fill: #1d3a4a; stroke: #4fc3f7; stroke-width: 2.5; }
+.space.heal-target polygon { fill: #3a3420; stroke: #ffd54f; stroke-width: 2.5; }
 .icon { pointer-events: none; stroke-linecap: round; stroke-linejoin: round; }
 .counter {
   font-family: var(--mono);
@@ -221,7 +222,7 @@ aside {
   dominant-baseline: central;
   pointer-events: none;
 }
-.space.selected polygon { stroke: var(--accent); stroke-width: 3; fill: #123040; }
+.space.selected polygon { stroke: var(--selected); stroke-width: 3; fill: #26303c; }
 
 .occupant {
   font-family: var(--mono);
@@ -266,7 +267,7 @@ b.scaled { font-weight: 800; }
   text-align: center;
 }
 .chip b { font-weight: 600; }
-.chip.selected { border-color: var(--accent); }
+.chip.selected { border-color: var(--selected); }
 #market h2 { margin-bottom: 2px; }
 
 /* ---------- Reserve & storage panel ---------- */
@@ -298,7 +299,7 @@ b.scaled { font-weight: 800; }
   font-size: 12px;
 }
 button.card:hover { border-color: var(--muted); }
-.card.selected { border-color: var(--accent); }
+.card.selected { border-color: var(--selected); }
 .card-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .card-actions button { font-size: 11px; padding: 2px 6px; }
 .card-actions .muted { font-size: 11px; align-self: center; }
