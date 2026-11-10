@@ -234,11 +234,12 @@ const UI = {
 
   // A part copy's name, coloured by its rarity if it has one.
   partHtml(instance) {
-    const name = WEAPON_PARTS[instance.partId].nameFor(instance);
+    const version = WEAPON_PARTS[instance.partId].versionFor(instance);
     const rarity = instance.rarity && Rarity.get(instance.rarity);
+    const tip = [rarity ? `${rarity.name} ×${rarity.multiplier}` : "", version.description].filter(Boolean).join(" — ").replace(/"/g, "&quot;");
     return rarity
-      ? `<b style="color:${rarity.color}" title="${rarity.name} ×${rarity.multiplier}">${name}</b>`
-      : `<b>${name}</b>`;
+      ? `<b style="color:${rarity.color}" title="${tip}">${version.name}</b>`
+      : `<b title="${tip}">${version.name}</b>`;
   },
 
   // A part copy's stats. Numbers changed by rarity are bold in the rarity colour.
@@ -249,11 +250,17 @@ const UI = {
     const stats = Object.entries(part.statsFor(instance)).map(([key, value]) => {
       // A base sets starting values ("range 2"); other parts add or subtract ("range +1").
       const shown = typeof value === "number" && value > 0 && !(part instanceof WeaponBase) ? `+${value}` : value;
+      const label = UI.statLabel(key);
       return scaled.includes(key)
-        ? `${key} <b class="scaled" style="color:${color}">${shown}</b>`
-        : `${key} ${shown}`;
+        ? `${label} <b class="scaled" style="color:${color}">${shown}</b>`
+        : `${label} ${shown}`;
     });
-    return stats.length ? stats.join(" · ") : `<span class="muted">no stats yet</span>`;
+    return stats.length ? stats.join(" · ") : `<span class="muted">no stats</span>`;
+  },
+
+  // "thermalDamage" -> "thermal damage", "onHitThermal" -> "on hit thermal".
+  statLabel(key) {
+    return key.replace(/([A-Z])/g, " $1").toLowerCase();
   },
 
   partKind(part) {

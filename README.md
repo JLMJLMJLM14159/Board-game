@@ -10,8 +10,8 @@ A same-screen prototype of a dystopian sci-fi board game. Plain HTML, CSS and Ja
 index.html          page layout
 css/style.css       look and feel
 js/config.js        tweakable numbers: board size, players, weapon slots, synergy elements
-js/data/            the catalogues (currently empty, with templates)
-  weapons.js          weapon parts, bases included
+js/data/            the catalogues
+  weapons.js          weapon parts, bases included (28 example parts)
   units.js            units that go on octagons
   buildings.js        buildings that go on squares
 js/random.js        seeded randomness (undo-safe)
@@ -174,6 +174,30 @@ is replaced. The fixed slots are listed once, in `Armory.FIXED_PLACES`.
 Parts only add to or subtract from stats.
 A new kind of part is a new subclass. Parts in play are stored as plain `{ partId, rarity }`
 data so the game state can be copied for undo.
+
+## Example parts and counter themes
+
+`js/data/weapons.js` has 28 example parts to playtest with. Each slot has a job:
+
+| Slot | Job |
+|---|---|
+| Base | the unit's starting shooting stats |
+| Barrel | stats: range and untyped damage |
+| Mag | stats: shots and the damage type (the ammo) |
+| Muzzle | what happens to the target, mostly counters on enemies |
+| Stock | triggers about anything |
+| Attachment | anything |
+
+The counter themes they use (counters do nothing on their own):
+- **Thermal = burn:** muzzles give enemies negative thermal counters; the Pyre Stock burns them each turn.
+- **Electrical = charge:** the Capacitor Stock builds positive electrical on your unit and discharges it as a big
+  hit; the Arc Choke shorts enemies with negative electrical; Insulated Plating resists it.
+- **Biological = infection:** the Spore Diffuser infects enemies with negative biological counters, the Contagion
+  Stock spreads them when infected units die, the Catalyst Scanner hits infected enemies harder and the Medic's
+  Antitoxin Kit cures them.
+
+Trigger strengths live in a part's `stats` (e.g. `onHitThermal`) and are read with `ctx.value(...)`, so they
+scale with rarity and show on the part.
 
 ## Part rarity
 

@@ -18,8 +18,10 @@
 //   ctx.event       the event's name
 //   ctx.owner       the trigger's owner (player index)
 //   ctx.self        the unit or building the trigger belongs to
-//   ctx.part        the part instance, if the trigger is on a weapon part
-//   ctx.space       where `self` is on the board (null if in reserve)
+//   ctx.selfPart    the part instance, if the trigger is on a weapon part
+//   ctx.selfSpace   where `self` is on the board (null if in reserve)
+//   ctx.value(key)  a number from the trigger's part's stats, with rarity applied
+//                   (so trigger strengths can scale with rarity and show on the part)
 //   ctx.mine(p)     is player / unit / building p the owner's (or owned by them)?
 //   ctx.ownersTurn  is it the owner's turn right now?
 //   ctx.isSelf(u)   is unit / building u the trigger's own piece?
@@ -108,8 +110,9 @@ const Events = {
             ...details,
             owner: l.owner,
             self: l.self,
-            part: l.part || null,
-            space: l.space,
+            selfPart: l.part || null,
+            selfSpace: l.space,
+            value: (key) => (l.part ? WEAPON_PARTS[l.part.partId].statsFor(l.part)[key] ?? 0 : 0),
             mine: (x) => (typeof x === "number" ? x : x && x.owner) === l.owner,
             ownersTurn: state.currentPlayer === l.owner,
             isSelf: (x) => x === l.self,
