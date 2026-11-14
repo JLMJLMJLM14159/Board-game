@@ -99,8 +99,14 @@ plus `thermalDamage`, `electricalDamage` and `biologicalDamage`. Triggers can de
 
 When a unit dies, its parts go back to its owner's storage **one rarity lower**; Common parts are destroyed. The game stores damage taken, not current
 health, so current health = max health − damage taken: when max health changes, current health changes by the
-same amount, and a unit at 0 health is removed. Click a unit to see where it can go (green) and what it
-can hit (red), then click the space to do it.
+same amount, and a unit at 0 health is removed.
+
+**Board highlights** (each area gets one ring around it, not a border on every octagon):
+- select one of your units: **green** = everywhere it can move this turn (click any of them and it walks there
+  by the shortest path, as one undoable step); **red ring** = its attack range; enemies it can attack are
+  **shaded red** (click to attack); units a Medic can heal are **gold**;
+- select your HQ / a deployable building during Main: **green** = the octagons you can deploy to.
+Selections are outlined in white for both teams.
 
 ## Units
 
@@ -138,8 +144,8 @@ above the unit on the board and in the info panel. What gives or uses counters w
 
 ## Territory and buildings
 
-The board is 8×8 octagons, with a square wherever four octagons meet. The game is for 2 players:
-Player 1's **HQ** is on the middle square of the back row at the bottom, Player 2's at the top
+The board is 8×8 octagons, with a square wherever four octagons meet. The game is for 2 teams,
+**Blue** and **Red**. Blue's **HQ** is on the middle square of the back row at the bottom, Red's at the top
 (`CONFIG.startingBuildings`), and each starts controlling the 4 octagons around it.
 **Capturing the enemy HQ ends the game and wins it.**
 

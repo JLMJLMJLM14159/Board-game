@@ -207,12 +207,14 @@ aside {
 .space.octagon polygon { fill: var(--octagon); }
 .space.square polygon { fill: var(--square); }
 .space:hover polygon { fill: var(--surface-2); }
-.space.neighbor polygon { fill: #252e39; }
-.space.actionable polygon { stroke: #6b7886; }
-.space.in-range polygon { fill: #2b313a; }
-.space.move-target polygon { fill: #1d4a3a; stroke: #4caf50; stroke-width: 2; }
-.space.shoot-target polygon { fill: #4a1d24; stroke: #ef5350; stroke-width: 2.5; }
-.space.heal-target polygon { fill: #3a3420; stroke: #ffd54f; stroke-width: 2.5; }
+
+
+/* Highlighted areas: whole octagons shaded, with one ring around each area. */
+.space.fill-move polygon,
+.space.fill-deploy polygon { fill: #1f4a2c; }
+.space.fill-attack polygon { fill: #5a1f24; }
+.space.fill-heal polygon { fill: #4a3f1a; }
+.region-ring { fill: none; stroke-width: 3; stroke-linecap: round; pointer-events: none; }
 .icon { pointer-events: none; stroke-linecap: round; stroke-linejoin: round; }
 .counter {
   font-family: var(--mono);

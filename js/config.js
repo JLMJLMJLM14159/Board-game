@@ -13,10 +13,10 @@ const CONFIG = {
   },
 
   // ---- Players ----
-  // The game is for 2 players: Player 1 starts at the bottom, Player 2 at the top.
+  // The game is for 2 teams: Blue starts at the bottom, Red at the top.
   players: [
-    { name: "Player 1", color: "#4fc3f7" },
-    { name: "Player 2", color: "#ba68c8" },
+    { name: "Blue", color: "#42a5f5" },
+    { name: "Red", color: "#ef5350" },
   ],
 
   // ---- Territory ----
@@ -24,8 +24,8 @@ const CONFIG = {
   // square (see the board numbering above). Update these if the board size changes.
   // Both HQs sit on the middle square of the row nearest their own edge.
   startingBuildings: [
-    [{ typeId: "hq", row: 6, col: 3 }],   // Player 1: back row at the bottom, centred
-    [{ typeId: "hq", row: 0, col: 3 }],   // Player 2: back row at the top, centred
+    [{ typeId: "hq", row: 6, col: 3 }],   // Blue: back row at the bottom, centred
+    [{ typeId: "hq", row: 0, col: 3 }],   // Red: back row at the top, centred
   ],
   // A building is captured by controlling a majority (3 of 4) of the octagons
   // around it at the start of your turn, and still holding it at the start of

@@ -742,6 +742,38 @@ const Rules = {
     if (before === null && state.winner !== null) Events.emit(state, "gameWon", { player: state.winner });
   },
 
+  // ---------- Movement ----------
+
+  // Every empty octagon the unit on `from` can reach with its moves left this
+  // turn, each with the MOVE_UNIT steps (shortest path) to get there:
+  // { "O-3-4": [move, move], ... }. Only legal paths are included.
+  reachable(state, from) {
+    const unit = from.unit;
+    if (!unit) return {};
+    const steps = Units.movesLeft(state, unit);
+    const paths = {};
+    let frontier = [{ id: from.id, path: [] }];
+    const seen = new Set([from.id]);
+    for (let depth = 0; depth < steps; depth++) {
+      const next = [];
+      for (const { id, path } of frontier) {
+        for (const to of Board.octagonNeighbors(state.spaces, state.spaces[id])) {
+          if (seen.has(to) || state.spaces[to].unit) continue;
+          seen.add(to);
+          const step = { type: "MOVE_UNIT", from: id, to };
+          paths[to] = [...path, step];
+          next.push({ id: to, path: paths[to] });
+        }
+      }
+      frontier = next;
+    }
+    // The first step must be legal (right phase, unit's owner's turn, etc.).
+    for (const [to, path] of Object.entries(paths)) {
+      if (!Rules.check(state, path[0]).ok) delete paths[to];
+    }
+    return paths;
+  },
+
   // ---------- Actions ----------
 
   check(state, action) {

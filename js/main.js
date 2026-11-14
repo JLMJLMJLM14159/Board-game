@@ -30,6 +30,21 @@ UI.init({
     refresh();
   },
 
+  // Several actions as one undoable step, e.g. walking a unit several octagons.
+  onActions(actions) {
+    const before = state;
+    try {
+      for (const action of actions) state = Rules.applyAction(state, action);
+      history.push(before);
+      const last = actions[actions.length - 1];
+      if (last.type === "MOVE_UNIT") selection = { kind: "space", id: last.to };
+    } catch (err) {
+      state = before;
+      alert(err.message);
+    }
+    refresh();
+  },
+
   onAction(action) {
     try {
       const previousPlayer = state.currentPlayer;

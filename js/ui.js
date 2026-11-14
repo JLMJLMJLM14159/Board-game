@@ -137,49 +137,19 @@ const UI = {
 
     const selectedSpace = selection && selection.kind === "space" ? state.spaces[selection.id] : null;
     const selectedUnit = selectedSpace && selectedSpace.unit;
-    const legal = Rules.getLegalActions(state);
-    const actionSpaceIds = new Set(legal.flatMap((a) => [a.spaceId, a.from]).filter(Boolean));
+    const hl = UI.highlights(state, selectedSpace);
 
-    // Clicking a highlighted space does the selected unit's move or shot there.
-    const clickActions = {};
-    for (const a of legal) {
-      if (!selectedSpace || a.from !== selectedSpace.id) continue;
-      if (a.type === "MOVE_UNIT") clickActions[a.to] = a;
-      // Clicking your own units should still select them, so friendly shots and
-      // melee are only offered as buttons in the info panel.
-      const target = a.target && state.spaces[a.target].unit;
-      const friendly = target && target.owner === state.currentPlayer;
-      if ((a.type === "SHOOT" || a.type === "MELEE") && !friendly && !clickActions[a.target]) clickActions[a.target] = a;
-      if (a.type === "HEAL") clickActions[a.target] = a;
-    }
-
-    // A selected unit shows its range; anything else shows its neighbours.
-    let neighborIds = [];
-    let inRange = () => false;
-    if (selectedUnit) {
-      const range = Units.range(state, selectedUnit);
-      inRange = (s) => s.kind === "octagon" && s.id !== selectedSpace.id && Board.distance(selectedSpace, s) <= range;
-    } else if (selectedSpace) {
-      neighborIds = Board.neighbors(state.spaces, selectedSpace);
-    }
-
-    // Octagons first, then squares on top so their edges stay crisp, then
-    // click targets and the selected space last so their outlines aren't covered.
-    const layer = (s) =>
-      selectedSpace && s.id === selectedSpace.id ? 3 : clickActions[s.id] ? 2 : s.kind === "octagon" ? 0 : 1;
+    // Octagons first, then squares on top so their edges stay crisp, then the
+    // selected space last so its outline isn't covered.
+    const layer = (s) => (selectedSpace && s.id === selectedSpace.id ? 2 : s.kind === "octagon" ? 0 : 1);
     const spaces = Object.values(state.spaces).sort((a, b) => layer(a) - layer(b));
 
     for (const space of spaces) {
       const g = document.createElementNS(SVG_NS, "g");
       g.classList.add("space", space.kind);
       if (selectedSpace && space.id === selectedSpace.id) g.classList.add("selected");
-      if (neighborIds.includes(space.id)) g.classList.add("neighbor");
-      if (actionSpaceIds.has(space.id)) g.classList.add("actionable");
-      if (inRange(space)) g.classList.add("in-range");
-      const clickAction = clickActions[space.id];
-      if (clickAction) {
-        g.classList.add({ SHOOT: "shoot-target", MELEE: "shoot-target", HEAL: "heal-target", MOVE_UNIT: "move-target" }[clickAction.type]);
-      }
+      if (hl.fill[space.id]) g.classList.add(`fill-${hl.fill[space.id]}`);
+      const clickActions = hl.click[space.id];
       g.dataset.id = space.id;
 
       const shape = document.createElementNS(SVG_NS, "polygon");
@@ -224,10 +194,111 @@ const UI = {
       }
 
       g.addEventListener("click", () =>
-        clickAction ? UI.handlers.onAction(clickAction) : UI.handlers.onSelect({ kind: "space", id: space.id })
+        clickActions ? UI.handlers.onActions(clickActions) : UI.handlers.onSelect({ kind: "space", id: space.id })
       );
       svg.appendChild(g);
     }
+
+    // One ring around each highlighted area, drawn on top of everything.
+    for (const { ids, color } of hl.rings) {
+      const d = UI.ringPath(state, ids);
+      if (!d) continue;
+      const ring = document.createElementNS(SVG_NS, "path");
+      ring.setAttribute("d", d);
+      ring.setAttribute("class", "region-ring");
+      ring.style.stroke = color;
+      svg.appendChild(ring);
+    }
+  },
+
+  // What to highlight for the selected space:
+  //   fill:  { spaceId: "move" | "deploy" | "attack" | "heal" }  (whole octagon shaded)
+  //   rings: [{ ids, color }]   a ring drawn around each group of spaces
+  //   click: { spaceId: [actions] }   clicking the space does these actions
+  highlights(state, selected) {
+    const hl = { fill: {}, rings: [], click: {} };
+    if (!selected) return hl;
+    const legal = Rules.getLegalActions(state);
+    const GREEN = "#4caf50", RED = "#ff5252", GOLD = "#ffd54f";
+
+    // A selected unit: where it can move (green), its attack range (red ring),
+    // enemies it can attack (shaded red) and units it can heal (gold).
+    if (selected.unit) {
+      const unit = selected.unit;
+      const paths = Rules.reachable(state, selected);
+      for (const [id, path] of Object.entries(paths)) {
+        hl.fill[id] = "move";
+        hl.click[id] = path;
+      }
+      // The rings include the unit's own octagon so they don't have a hole in the middle.
+      if (Object.keys(paths).length) hl.rings.push({ ids: [selected.id, ...Object.keys(paths)], color: GREEN });
+
+      // Range: shooting range, or 1 for melee if that reaches further.
+      const melee = Units.melee(state, unit) > 0 ? 1 : 0;
+      const range = Math.max(Units.range(state, unit), melee);
+      const inRange = Object.values(state.spaces)
+        .filter((s) => s.kind === "octagon" && s !== selected && Board.distance(selected, s) <= range)
+        .map((s) => s.id);
+      if (inRange.length) hl.rings.push({ ids: [selected.id, ...inRange], color: RED });
+
+      // Clicking an enemy attacks it (a shot if possible, otherwise melee). Friendly
+      // shots and melee stay as panel buttons, so clicking your own units selects them.
+      for (const a of legal) {
+        if (a.from !== selected.id) continue;
+        const target = a.target && state.spaces[a.target].unit;
+        if ((a.type === "SHOOT" || a.type === "MELEE") && target.owner !== state.currentPlayer && !hl.click[a.target]) {
+          hl.fill[a.target] = "attack";
+          hl.click[a.target] = [a];
+        }
+        if (a.type === "HEAL") {
+          hl.fill[a.target] = "heal";
+          hl.click[a.target] = [a];
+        }
+      }
+      const heals = Object.keys(hl.fill).filter((id) => hl.fill[id] === "heal");
+      if (heals.length) hl.rings.push({ ids: heals, color: GOLD });
+    }
+
+    // A selected building of yours: the octagons you can deploy to (green).
+    if (selected.building) {
+      const deployIds = Board.neighbors(state.spaces, selected).filter((id) =>
+        legal.some((a) => a.type === "DEPLOY_UNIT" && a.spaceId === id)
+      );
+      for (const id of deployIds) hl.fill[id] = "deploy";
+      if (deployIds.length) hl.rings.push({ ids: deployIds, color: GREEN });
+    }
+    return hl;
+  },
+
+  // An SVG path tracing the outside edge of a group of octagons: every edge that
+  // isn't shared with another shape in the group. A square counts as part of the
+  // group when two diagonally opposite octagons around it are in the group, so
+  // the ring follows the area's outline instead of dipping into the gaps.
+  ringPath(state, ids) {
+    const set = new Set(ids);
+    const shapes = ids.map((id) => state.spaces[id]);
+    for (const space of Object.values(state.spaces)) {
+      if (space.kind !== "square") continue;
+      const { row: r, col: c } = space;
+      const has = (dr, dc) => set.has(Board.octagonId(r + dr, c + dc));
+      if ((has(0, 0) && has(1, 1)) || (has(0, 1) && has(1, 0))) shapes.push(space);
+    }
+    const key = (p) => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
+    const edges = new Map();
+    for (const space of shapes) {
+      const pts = UI.shapePoints(space).split(" ").map((p) => p.split(",").map(Number));
+      pts.forEach((a, i) => {
+        const b = pts[(i + 1) % pts.length];
+        const k = [key(a), key(b)].sort().join("|");
+        const entry = edges.get(k) || { a, b, count: 0 };
+        entry.count++;
+        edges.set(k, entry);
+      });
+    }
+    return [...edges.values()]
+      .filter((e) => e.count === 1)
+      .map((e) => `M${e.a[0]} ${e.a[1]}L${e.b[0]} ${e.b[1]}`)
+      .join("");
   },
 
   // ---------- Parts ----------
